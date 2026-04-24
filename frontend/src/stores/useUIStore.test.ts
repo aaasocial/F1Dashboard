@@ -5,6 +5,8 @@ beforeEach(() => {
   useUIStore.setState({
     hoveredLap: null, hoveredCorner: null, mode: 'live',
     playing: true, pos: 1.0, speed: 1,
+    statusLogCollapsed: false, xZoom: null, mapFullscreen: false,
+    shortcutsOpen: false, provenanceOpen: false, toastMessage: null,
   })
 })
 
