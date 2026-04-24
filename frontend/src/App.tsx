@@ -8,6 +8,8 @@ import { ErrorBoundary } from './components/shared/ErrorBoundary'
 import { Toast } from './components/shared/Toast'
 import { ShortcutsModal } from './components/shared/ShortcutsModal'
 import { MapFullscreenOverlay } from './components/shared/MapFullscreenOverlay'
+import { DropOverlay } from './components/shared/DropOverlay'
+import { useDragUpload } from './hooks/useDragUpload'
 import { useUIStore } from './stores/useUIStore'
 import { useSimulationStore } from './stores/useSimulationStore'
 import { useHashSync } from './lib/useHashSync'
@@ -38,6 +40,8 @@ export function App() {
     document.addEventListener('keydown', listener)
     return () => document.removeEventListener('keydown', listener)
   }, [])  // empty deps — handler reads state at call time, never closure
+
+  const { dragActive, uploading, progress, error: uploadError } = useDragUpload()
 
   const toastMessage = useUIStore(s => s.toastMessage)
   const clearToast = useUIStore(s => s.clearToast)
@@ -124,6 +128,7 @@ export function App() {
       )}
       <ShortcutsModal />
       <MapFullscreenOverlay />
+      <DropOverlay active={dragActive} uploading={uploading} progress={progress} error={uploadError} />
     </>
   )
 }
