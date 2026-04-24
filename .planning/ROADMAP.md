@@ -128,8 +128,8 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
   6. Hovering any chart, tire widget, or track SVG highlights the same lap/timepoint in every other zone simultaneously with tooltips showing exact values and units; the status log (Zone 7) lists per-lap model events and can be collapsed.
   7. FIA compound colors (SOFT=red, MEDIUM=yellow, HARD=white), Okabe-Ito palette for categorical data, viridis for temperatures, deep navy background (#0a0e1a), off-white text, and JetBrains Mono / Inter typography are applied site-wide.
 **Plans:** 9 plans
-- [ ] 05-01-PLAN.md — Vite scaffold, Tailwind 4 CSS tokens, self-hosted fonts, Wave 0 test infra (DASH-04, VIZ-06)
-- [ ] 05-02-PLAN.md — TypeScript types, D3 color/format utils, Zustand stores, TanStack Query hooks (DASH-01, VIZ-05, VIZ-06)
+- [x] 05-01-PLAN.md — Vite scaffold, Tailwind 4 CSS tokens, self-hosted fonts, Wave 0 test infra (DASH-04, VIZ-06)
+- [x] 05-02-PLAN.md — TypeScript types, D3 color/format utils, Zustand stores, TanStack Query hooks (DASH-01, VIZ-05, VIZ-06)
 - [ ] 05-03-PLAN.md — TopStrip: cascade pickers, mode toggle, scrubber, lap counter, shared PanelHeader/Skeleton (DASH-01, DASH-04)
 - [ ] 05-04-PLAN.md — CarPanel: SF-24 chassis SVG, CarWheel ×4 with viridis/wear/grip/CI halo, footer readouts (VIZ-02, VIZ-05, VIZ-06)
 - [ ] 05-05-PLAN.md — MapPanel: FastF1 X/Y track utilities, SVG circuit with 3-sector coloring, car dot, turn labels (VIZ-01)
@@ -151,7 +151,7 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
   6. Dragging a zip of a FastF1 cache directory onto the app fires `POST /sessions/upload`, and on success the app loads that session and runs `/simulate` against it without any further FastF1 fetch.
   7. The data provenance footer shows FastF1 library version, model schema version, calibration ID, calibration date, and the "Unofficial fan tool — not affiliated with F1, FIA, or Pirelli" disclaimer on every page.
 **Plans:** 9 plans
-- [ ] 05-01-PLAN.md — Vite scaffold, Tailwind 4 CSS tokens, self-hosted fonts, Wave 0 test infra (DASH-04, VIZ-06)
+- [x] 05-01-PLAN.md — Vite scaffold, Tailwind 4 CSS tokens, self-hosted fonts, Wave 0 test infra (DASH-04, VIZ-06)
 - [ ] 05-02-PLAN.md — TypeScript types, D3 color/format utils, Zustand stores, TanStack Query hooks (DASH-01, VIZ-05, VIZ-06)
 - [ ] 05-03-PLAN.md — TopStrip: cascade pickers, mode toggle, scrubber, lap counter, shared PanelHeader/Skeleton (DASH-01, DASH-04)
 - [ ] 05-04-PLAN.md — CarPanel: SF-24 chassis SVG, CarWheel ×4 with viridis/wear/grip/CI halo, footer readouts (VIZ-02, VIZ-05, VIZ-06)
