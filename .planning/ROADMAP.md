@@ -127,16 +127,8 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
   5. The tire array (Zone 3) shows four widgets in a 2×2 grid (FL/FR/RL/RR) each displaying circular temperature gauge, numeric temperature, grip %, cumulative energy (MJ), and slip angle — all updating in sync with chart hover.
   6. Hovering any chart, tire widget, or track SVG highlights the same lap/timepoint in every other zone simultaneously with tooltips showing exact values and units; the status log (Zone 7) lists per-lap model events and can be collapsed.
   7. FIA compound colors (SOFT=red, MEDIUM=yellow, HARD=white), Okabe-Ito palette for categorical data, viridis for temperatures, deep navy background (#0a0e1a), off-white text, and JetBrains Mono / Inter typography are applied site-wide.
-**Plans:** 9 plans
-- [ ] 05-01-PLAN.md — Vite scaffold, Tailwind 4 CSS tokens, self-hosted fonts, Wave 0 test infra (DASH-04, VIZ-06)
-- [ ] 05-02-PLAN.md — TypeScript types, D3 color/format utils, Zustand stores, TanStack Query hooks (DASH-01, VIZ-05, VIZ-06)
-- [ ] 05-03-PLAN.md — TopStrip: cascade pickers, mode toggle, scrubber, lap counter, shared PanelHeader/Skeleton (DASH-01, DASH-04)
-- [ ] 05-04-PLAN.md — CarPanel: SF-24 chassis SVG, CarWheel ×4 with viridis/wear/grip/CI halo, footer readouts (VIZ-02, VIZ-05, VIZ-06)
-- [ ] 05-05-PLAN.md — MapPanel: FastF1 X/Y track utilities, SVG circuit with 3-sector coloring, car dot, turn labels (VIZ-01)
-- [ ] 05-06-PLAN.md — LapPanel: pace trace, status log, big lap time, deltas, sector cards, stint projection (VIZ-03, VIZ-07)
-- [ ] 05-07-PLAN.md — PhysicsPanel: 4 metric tabs × 4 cornerwise CI band charts, hover crosshair (VIZ-03, VIZ-04, VIZ-05, VIZ-06)
-- [ ] 05-08-PLAN.md — POST /simulate/stream SSE backend endpoint: 7 module_complete events + simulation_complete (DASH-03)
-- [ ] 05-09-PLAN.md — App shell wiring: cockpit grid, SSE consumer hook, MSW dev activation, ErrorBoundary, human-verify (DASH-02, DASH-03, VIZ-05)
+**Plans:** TBD
+**UI hint**: yes
 
 ### Phase 6: Playback, Interactions & Sharing
 **Goal:** A user can play back a stint lap-by-lap, scrub or step with keyboard, export any chart, copy tire metrics, drop in a FastF1 cache zip, and share a URL that restores the exact scenario on reload — all with a provenance footer that makes the result citable.
@@ -150,16 +142,8 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
   5. The full scenario (race, driver, stint, current lap, any parameter overrides) is encoded in the URL hash; pasting that URL into a fresh browser restores the exact view.
   6. Dragging a zip of a FastF1 cache directory onto the app fires `POST /sessions/upload`, and on success the app loads that session and runs `/simulate` against it without any further FastF1 fetch.
   7. The data provenance footer shows FastF1 library version, model schema version, calibration ID, calibration date, and the "Unofficial fan tool — not affiliated with F1, FIA, or Pirelli" disclaimer on every page.
-**Plans:** 9 plans
-- [ ] 05-01-PLAN.md — Vite scaffold, Tailwind 4 CSS tokens, self-hosted fonts, Wave 0 test infra (DASH-04, VIZ-06)
-- [ ] 05-02-PLAN.md — TypeScript types, D3 color/format utils, Zustand stores, TanStack Query hooks (DASH-01, VIZ-05, VIZ-06)
-- [ ] 05-03-PLAN.md — TopStrip: cascade pickers, mode toggle, scrubber, lap counter, shared PanelHeader/Skeleton (DASH-01, DASH-04)
-- [ ] 05-04-PLAN.md — CarPanel: SF-24 chassis SVG, CarWheel ×4 with viridis/wear/grip/CI halo, footer readouts (VIZ-02, VIZ-05, VIZ-06)
-- [ ] 05-05-PLAN.md — MapPanel: FastF1 X/Y track utilities, SVG circuit with 3-sector coloring, car dot, turn labels (VIZ-01)
-- [ ] 05-06-PLAN.md — LapPanel: pace trace, status log, big lap time, deltas, sector cards, stint projection (VIZ-03, VIZ-07)
-- [ ] 05-07-PLAN.md — PhysicsPanel: 4 metric tabs × 4 cornerwise CI band charts, hover crosshair (VIZ-03, VIZ-04, VIZ-05, VIZ-06)
-- [ ] 05-08-PLAN.md — POST /simulate/stream SSE backend endpoint: 7 module_complete events + simulation_complete (DASH-03)
-- [ ] 05-09-PLAN.md — App shell wiring: cockpit grid, SSE consumer hook, MSW dev activation, ErrorBoundary, human-verify (DASH-02, DASH-03, VIZ-05)
+**Plans:** TBD
+**UI hint**: yes
 
 ### Phase 7: Deployment & Operations
 **Goal:** The application is live on its production URLs with persistent FastF1 + posterior storage, CORS locked down, a liveness probe passing, and the ten most recent race sessions pre-warmed so a first-time visitor's `/simulate` call lands on a cache hit.
@@ -181,7 +165,7 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
 | 2. Physics Model (Modules A–G) | 7/7 | Complete | 2026-04-23 |
 | 3. Bayesian Calibration Pipeline | 8/8 | Complete | 2026-04-23 |
 | 4. Simulation API & Uncertainty Quantification | 6/6 | Complete | 2026-04-24 |
-| 5. Dashboard Shell & Visualization | 0/9 | Planned | — |
+| 5. Dashboard Shell & Visualization | 0/? | Not started | — |
 | 6. Playback, Interactions & Sharing | 0/? | Not started | — |
 | 7. Deployment & Operations | 0/? | Not started | — |
 

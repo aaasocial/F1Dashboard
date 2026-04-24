@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@theme {
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: 'Inter', ui-sans-serif, sans-serif;
+  --color-bg: #05070b;
+  --color-panel: #0a0e15;
+  --color-panel-bg: #070a11;
+  --color-panel-header: #0c1119;
+  --color-panel-header-hi: #111827;
+  --color-rule: #1a2130;
+  --color-rule-strong: #2a3445;
+  --color-text: #e8eef7;
+  --color-text-dim: #6a7788;
+  --color-text-muted: #46525f;
+  --color-accent: #00E5FF;
+  --color-accent-dim: #0092a8;
+  --color-hot: #FF3344;
+  --color-warn: #FFB020;
+  --color-ok: #22E27A;
+  --color-purple: #A855F7;
+}
+
+/* CSS custom properties for SVG and inline style access */
+:root {
+  --bg: #05070b;
+  --panel: #0a0e15;
+  --panel-bg: #070a11;
+  --panel-header: #0c1119;
+  --panel-header-hi: #111827;
+  --rule: #1a2130;
+  --rule-strong: #2a3445;
+  --text: #e8eef7;
+  --text-dim: #6a7788;
+  --text-muted: #46525f;
+  --accent: #00E5FF;
+  --accent-dim: #0092a8;
+  --hot: #FF3344;
+  --warn: #FFB020;
+  --ok: #22E27A;
+  --purple: #A855F7;
+  --ferrari: #DC0000;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --sans: 'Inter', ui-sans-serif, sans-serif;
+}
+
+/* Self-hosted fonts — production: no Google CDN dependency */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  border-radius: 0 !important;  /* NO rounded corners anywhere — design lock */
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  min-width: 1600px;
+  overflow-x: auto;
+}
+
+/* Keyframe animations from design reference */
+@keyframes blink-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.55); }
+  100% { box-shadow: 0 0 0 8px rgba(0, 229, 255, 0); }
+}
