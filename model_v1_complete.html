@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Tire Degradation Model — Public Data Pipeline</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf8; --fg: #1a1a1a; --fg2: #555; --fg3: #888;
+    --accent: #2a5a8a; --accent2: #8a3a2a;
+    --border: #e0ddd5; --hl: #f0efe8; --eq-bg: #f7f6f0;
+    --new: #2a7a4a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18; --fg: #e0ddd5; --fg2: #aaa; --fg3: #777;
+      --accent: #6aacee; --accent2: #ee8a6a;
+      --border: #3a3a35; --hl: #2a2a25; --eq-bg: #28281f;
+      --new: #7acc9a;
+    }
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Georgia','Times New Roman',serif;
+    background:var(--bg); color:var(--fg);
+    line-height:1.85; padding:3rem 1.5rem;
+    max-width:820px; margin:0 auto; font-size:17px;
+  }
+  h1 { font-size:1.6rem; font-weight:600; margin-bottom:0.2rem; }
+  .sub { font-size:0.9rem; color:var(--fg3); margin-bottom:2rem; font-style:italic; }
+  h2 { font-size:1.25rem; font-weight:600; margin-top:2.8rem; margin-bottom:0.8rem; color:var(--accent); padding-bottom:0.4rem; border-bottom:1px solid var(--border); }
+  h3 { font-size:1.05rem; font-weight:600; margin-top:1.8rem; margin-bottom:0.5rem; }
+  h4 { font-size:0.95rem; font-weight:600; margin-top:1.2rem; margin-bottom:0.4rem; color:var(--fg2); }
+  p { margin-bottom:1rem; }
+  .eq {
+    background:var(--eq-bg); border-left:3px solid var(--accent);
+    padding:0.9rem 1.1rem; margin:1rem 0; overflow-x:auto; border-radius:0 4px 4px 0;
+  }
+  .eq.key { border-left-color:var(--accent2); }
+  .eq.new { border-left-color:var(--new); }
+  .eq .src {
+    display:block; font-family:sans-serif; font-size:0.7rem; color:var(--fg3);
+    margin-bottom:0.3rem; letter-spacing:0.05em;
+  }
+  .eq .src.new { color:var(--new); font-weight:600; }
+  .note {
+    background:var(--hl); border-radius:4px;
+    padding:0.8rem 1rem; margin:1rem 0; font-size:0.92rem; color:var(--fg2);
+  }
+  .note strong { color:var(--fg); }
+  .defs { font-size:0.92rem; color:var(--fg2); margin:0.5rem 0 1rem 1rem; }
+  .defs li { margin-bottom:0.2rem; list-style:none; text-indent:-1rem; padding-left:1rem; }
+  .defs li::before { content:"— "; color:var(--fg3); }
+  hr { border:none; border-top:1px solid var(--border); margin:2.5rem 0; }
+  code {
+    font-family:'Menlo','Consolas',monospace; font-size:0.88em;
+    background:var(--hl); padding:0.15em 0.4em; border-radius:3px;
+  }
+  .module {
+    background:var(--hl); padding:0.6rem 0.9rem; border-radius:4px;
+    margin:0.5rem 0; font-family:sans-serif; font-size:0.9rem;
+  }
+  .pipeline {
+    background:var(--eq-bg); border:1px solid var(--border); border-radius:6px;
+    padding:1.2rem; margin:1.5rem 0; font-family:'Menlo',monospace;
+    font-size:0.78rem; line-height:1.7; white-space:pre; overflow-x:auto; color:var(--fg2);
+  }
+  .diff-label {
+    display:inline-block; font-family:sans-serif; font-size:0.7rem;
+    padding:2px 8px; border-radius:3px; margin-right:6px; font-weight:600;
+  }
+  .diff-castellano { background:var(--hl); color:var(--fg2); }
+  .diff-new { background:var(--new); color:var(--bg); }
+  table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:0.88rem; color:var(--fg2); }
+  table th, table td { padding:6px 10px; text-align:left; border-bottom:1px solid var(--border); }
+  table th { color:var(--fg); font-weight:600; background:var(--hl); }
+</style>
+</head>
+<body>
+
+<h1>F1 Tire Degradation Model from Public Telemetry</h1>
+<p class="sub">A five-module physics-informed model extending Castellano et al. (2021) to publicly available FastF1 data with Hertzian contact mechanics and thermal coupling.</p>
+
+<h2>Architecture overview</h2>
+
+<div class="module"><strong>Module A — Kinematic front-end:</strong> XY position + speed → accelerations, path curvature, heading</div>
+<div class="module"><strong>Module B — Vertical loads:</strong> weight transfer + aero → $F_{z,i}$ per tire</div>
+<div class="module"><strong>Module C — Lateral/longitudinal forces:</strong> Castellano's proportional-to-load split → $F_{y,i}$, $F_{x,i}$</div>
+<div class="module"><strong>Module D — Hertzian contact + friction:</strong> contact patch geometry → $\bar{p}_i$ → $\mu_i(T, \bar{p}_i)$</div>
+<div class="module"><strong>Module E — Slip inversion + sliding power:</strong> brush model inversion → $\alpha_i, V_{sy,i}$ → $P_{slide,i}$</div>
+<div class="module"><strong>Module F — Thermal ODE:</strong> three-node lumped model → $T_{tread,i}(t)$ feedback</div>
+<div class="module"><strong>Module G — Cumulative energy + degradation:</strong> integrated $E_{tire,i}(t)$ → grip decay</div>
+
+<p>Modules B and C follow Castellano's framework closely. Modules A, D, E, F, G are where this model diverges — using only public data, adding contact mechanics, and closing the thermal loop.</p>
+
+<div class="pipeline">FastF1 telemetry
+   │   V, X, Y, Z, RPM, throttle, brake, T_track, T_air
+   ▼
+[Module A: Kinematic front-end]
+   │   a_lat, a_long, κ, ψ (heading), V_sx
+   ▼
+[Module B: Vertical loads per tire]   ◄── gravity, weight transfer, aero
+   │   F_z,FL  F_z,FR  F_z,RL  F_z,RR
+   ▼
+[Module C: Force distribution (Castellano)]
+   │   F_y,i  F_x,i  for each tire
+   ▼
+[Module D: Hertzian + friction]   ◄── T_tread from Module F
+   │   a_cp,i  p̄_i  μ_i(T, p̄)
+   ▼
+[Module E: Slip inversion & sliding power]
+   │   α_i  V_sy,i  P_slide,i
+   ▼
+[Module F: Thermal ODE]  ──── feeds T_tread back to Module D
+   │   T_tread,i  T_carc,i  T_gas,i
+   ▼
+[Module G: Energy integral & degradation]
+    E_cum,i   →   μ_0(t)   (slow drift)</div>
+
+<hr>
+
+<h2>Module A — Kinematic front-end <span class="diff-label diff-new">NEW</span></h2>
+
+<p>Castellano reads $A_x, A_y$ directly from an accelerometer. You must derive them from position and speed.</p>
+
+<h3>A.1 Path curvature from XY position</h3>
+
+<p>Fit a smoothing cubic spline through $(X(s), Y(s))$ parameterized by arc length $s$. Curvature:</p>
+
+<div class="eq new">
+  <span class="src new">NEW — replaces Castellano's accelerometer</span>
+  $$\kappa(s) = \dfrac{X'(s)\,Y''(s) - Y'(s)\,X''(s)}{\left(X'(s)^2 + Y'(s)^2\right)^{3/2}}$$
+</div>
+
+<p>where primes denote $d/ds$. Because $s$ is arc length, $X'^2 + Y'^2 = 1$ by construction, so this simplifies to:</p>
+
+<div class="eq new">
+  $$\kappa(s) = X'(s)\,Y''(s) - Y'(s)\,X''(s)$$
+</div>
+
+<p>In practice, use a reference curvature map $\kappa_{ref}(s)$ computed once from the fastest clean lap, then look up $\kappa$ by track distance for every lap afterward. This eliminates lap-to-lap noise in the curvature signal.</p>
+
+<h3>A.2 Accelerations</h3>
+
+<div class="eq new">
+  <span class="src new">NEW — Frenet-Serret decomposition</span>
+  $$a_{lat}(t) = V(t)^2 \cdot \kappa(s(t))$$
+</div>
+
+<div class="eq new">
+  $$a_{long}(t) = \dfrac{dV}{dt}$$
+</div>
+
+<p>Compute $dV/dt$ using a Savitzky-Golay filter on the speed channel to suppress high-frequency noise while preserving peaks.</p>
+
+<h3>A.3 Heading angle</h3>
+
+<p>The velocity vector direction (course angle):</p>
+
+<div class="eq new">
+  $$\psi(t) = \arctan2\!\left(\dfrac{dY}{dt},\; \dfrac{dX}{dt}\right)$$
+</div>
+
+<p>This is the direction of the velocity vector. The car's actual heading differs by the body sideslip angle $\beta$, which is small ($1{-}3°$) for F1 and ignored at this stage.</p>
+
+<h3>A.4 Longitudinal slip velocity</h3>
+
+<p>From RPM and gear ratios (assuming RWD):</p>
+
+<div class="eq new">
+  $$V_{wheel,r}(t) = \dfrac{2\pi \cdot RPM(t)}{60 \cdot G_{ratio}(Gear) \cdot G_{final}} \cdot R_0$$
+</div>
+
+<div class="eq new">
+  $$V_{sx,r}(t) = V_{wheel,r}(t) - V(t)$$
+</div>
+
+<p>Positive during acceleration (wheel faster than ground), negative during braking. Gear ratios $G_{ratio}(1), \ldots, G_{ratio}(8)$ and final drive $G_{final}$ are FIA-regulated values. For front tires (undriven), $V_{sx,f} \approx 0$ except during braking — but since FastF1's Brake channel is only boolean, you treat $V_{sx,f}$ = 0 always and put the entire longitudinal sliding energy on the rear tires during acceleration and split it using brake bias during braking (as in Castellano §2.6).</p>
+
+<hr>
+
+<h2>Module B — Vertical loads per tire <span class="diff-label diff-castellano">CASTELLANO</span></h2>
+
+<h3>B.1 Static loads (Castellano Eqs. 1–2)</h3>
+
+<div class="eq">
+  <span class="src">Castellano Eq. 1–2</span>
+  $$SL_F = \dfrac{M_{tot} \cdot WD}{2}, \quad SL_R = \dfrac{M_{tot} \cdot (1-WD)}{2}$$
+</div>
+
+<h3>B.2 Longitudinal load transfer (Castellano Eq. 5)</h3>
+
+<div class="eq">
+  <span class="src">Castellano Eq. 5</span>
+  $$\Delta F_{z,long} = \dfrac{M_{tot} \cdot a_{long} \cdot H_{CG}}{WB}$$
+</div>
+
+<h3>B.3 Lateral load transfer <span class="diff-label diff-new">SIMPLIFIED FROM CASTELLANO</span></h3>
+
+<p>Castellano's full lateral load transfer (Eq. 3–4) requires roll center heights, roll stiffnesses, and the roll angle $\theta$ measured from suspension displacement sensors. You have none of these. Use the simplified elastic model:</p>
+
+<div class="eq new">
+  <span class="src new">NEW — simplified, no roll angle sensor</span>
+  $$\Delta F_{z,lat,f} = \dfrac{M_{tot} \cdot a_{lat} \cdot H_{CG}}{T_f} \cdot \dfrac{K_{rf}}{K_{rf} + K_{rr}}$$
+</div>
+
+<div class="eq new">
+  $$\Delta F_{z,lat,r} = \dfrac{M_{tot} \cdot a_{lat} \cdot H_{CG}}{T_r} \cdot \dfrac{K_{rr}}{K_{rf} + K_{rr}}$$
+</div>
+
+<p>This captures the elastic (roll stiffness) component of load transfer but collapses the geometric component (roll centers). For F1 the simplification is acceptable because roll centers are low (20–50 mm vs. $H_{CG} \approx 280$ mm).</p>
+
+<h3>B.4 Aerodynamic downforce <span class="diff-label diff-new">ADDED</span></h3>
+
+<p>Castellano's $F_{aero}$ is treated as a given per-corner quantity. For F1, compute it from speed and aero coefficients:</p>
+
+<div class="eq new">
+  <span class="src new">NEW — critical for F1 at high speed</span>
+  $$F_{z,aero}(V) = \tfrac{1}{2} \rho \, C_L A \cdot V^2$$
+</div>
+
+<p>Split front/rear by aero balance $\xi$ (typically 0.45 for current F1):</p>
+
+<div class="eq new">
+  $$F_{z,aero,f} = \xi \cdot F_{z,aero}, \quad F_{z,aero,r} = (1-\xi) \cdot F_{z,aero}$$
+</div>
+
+<p>Per side (left/right), split equally. Aero balance can shift with ride height, but that data is not accessible — treat $\xi$ as constant.</p>
+
+<h3>B.5 Vertical load per tire (Castellano Eqs. 6–9)</h3>
+
+<p>Sign convention: $a_{lat} > 0$ for right turn (loads left side), $a_{long} > 0$ for acceleration (loads rear).</p>
+
+<div class="eq">
+  <span class="src">Castellano Eq. 6–9, with FL on outside of right turn</span>
+  $$F_{z,FL} = SL_F - \Delta F_{z,long} + \Delta F_{z,lat,f} + \tfrac{1}{2} F_{z,aero,f}$$
+</div>
+<div class="eq">
+  $$F_{z,FR} = SL_F - \Delta F_{z,long} - \Delta F_{z,lat,f} + \tfrac{1}{2} F_{z,aero,f}$$
+</div>
+<div class="eq">
+  $$F_{z,RL} = SL_R + \Delta F_{z,long} + \Delta F_{z,lat,r} + \tfrac{1}{2} F_{z,aero,r}$$
+</div>
+<div class="eq">
+  $$F_{z,RR} = SL_R + \Delta F_{z,long} - \Delta F_{z,lat,r} + \tfrac{1}{2} F_{z,aero,r}$$
+</div>
+
+<hr>
+
+<h2>Module C — Force distribution <span class="diff-label diff-castellano">CASTELLANO</span></h2>
+
+<h3>C.1 Total forces at CG (Castellano Eqs. 10–11)</h3>
+
+<div class="eq">
+  <span class="src">Castellano Eq. 10–11</span>
+  $$F_{y,G} = M_{tot} \cdot a_{lat}, \quad F_{x,G} = M_{tot} \cdot a_{long}$$
+</div>
+
+<h3>C.2 Lateral force per tire (Castellano Eqs. 12–19)</h3>
+
+<p>Proportional to vertical load share. Normalized load fractions:</p>
+
+<div class="eq">
+  <span class="src">Castellano Eqs. 16–19, adapted</span>
+  $$F_{z,i,\%} = \dfrac{F_{z,i}}{F_{z,FL} + F_{z,FR} + F_{z,RL} + F_{z,RR}}$$
+</div>
+
+<p>Lateral force distribution:</p>
+
+<div class="eq">
+  <span class="src">Castellano Eqs. 12–15</span>
+  $$F_{y,i} = F_{y,G} \cdot F_{z,i,\%} \quad \text{for } i \in \{FL, FR, RL, RR\}$$
+</div>
+
+<h3>C.3 Longitudinal force per tire (Castellano Eqs. 20–27)</h3>
+
+<p>Braking contribution, scaled by brake bias $BB$:</p>
+
+<div class="eq">
+  <span class="src">Castellano Eqs. 20–23</span>
+  $$F_{x,i}^{brake} = \min\!\left(F_{x,G} \cdot F_{z,i,\%},\; 0\right) \cdot \begin{cases} BB & i \in \{FL, FR\} \\ 1-BB & i \in \{RL, RR\} \end{cases}$$
+</div>
+
+<p>Power (acceleration) contribution — zero on fronts, rear-only:</p>
+
+<div class="eq">
+  <span class="src">Castellano Eqs. 24–27</span>
+  $$F_{x,RL}^{power} = \max\!\left(F_{x,G}(F_{z,RL,\%} + F_{z,FL,\%}),\; 0\right)$$
+</div>
+<div class="eq">
+  $$F_{x,RR}^{power} = \max\!\left(F_{x,G}(F_{z,RR,\%} + F_{z,FR,\%}),\; 0\right)$$
+</div>
+
+<p>Total: $F_{x,i} = F_{x,i}^{brake} + F_{x,i}^{power}$.</p>
+
+<hr>
+
+<h2>Module D — Hertzian contact + friction <span class="diff-label diff-new">NEW</span></h2>
+
+<p>Castellano uses the team-provided Pacejka model as a black box. You replace this with a physics-based model built on Hertzian contact mechanics and Greenwood-Williamson adhesion theory.</p>
+
+<h3>D.1 Contact patch half-length</h3>
+
+<p>From Gim (1988), cited by Ozerem &amp; Morrey (2019):</p>
+
+<div class="eq new">
+  <span class="src new">Gim (1988)</span>
+  $$a_{cp,i} = \sqrt{2 R_0 \delta_i}, \quad \delta_i = \dfrac{F_{z,i}}{K_{rad}}$$
+</div>
+
+<p>Therefore $a_{cp,i} = \sqrt{2 R_0 F_{z,i} / K_{rad}}$, which scales as $F_{z,i}^{1/2}$. More heavily loaded tires have longer contact patches.</p>
+
+<h3>D.2 Mean Hertzian contact pressure</h3>
+
+<p>For a rectangular patch with tread half-width $b_{tread}$:</p>
+
+<div class="eq new">
+  <span class="src new">Hertzian, pneumatic tire approximation</span>
+  $$\bar{p}_i = \dfrac{F_{z,i}}{4 \, a_{cp,i} \, b_{tread}}$$
+</div>
+
+<p>This pressure varies per tire as loads shift during cornering and braking.</p>
+
+<h3>D.3 Load-sensitive friction from Greenwood-Williamson</h3>
+
+<p>From Greenwood &amp; Williamson (1966), the real contact area scales as:</p>
+
+<div class="eq">
+  <span class="src">Greenwood &amp; Williamson (1966)</span>
+  $$A_{real} = \kappa_{GW} \cdot A_{app} \cdot \left(\dfrac{\bar{p}}{E^*}\right)^n$$
+</div>
+
+<p>Since $F = \tau_s \cdot A_{real}$ and $F_z = \bar{p} \cdot A_{app}$, the friction coefficient $\mu = F/F_z$ becomes:</p>
+
+<div class="eq new">
+  <span class="src new">Derived from GW; absorbs unknown constants into $\mu_0$</span>
+  $$\mu_i^{pressure}(\bar{p}_i) = \mu_0 \cdot \left(\dfrac{\bar{p}_0}{\bar{p}_i}\right)^{1-n}$$
+</div>
+
+<p>where $\mu_0$ is the reference friction at reference pressure $\bar{p}_0$, and $n \approx 0.8$.</p>
+
+<h3>D.4 Temperature-dependent friction (Grosch-style bell curve)</h3>
+
+<p>The combined adhesion + hysteresis friction has a temperature optimum near the rubber's glass transition frequency response. Model with a Gaussian:</p>
+
+<div class="eq new">
+  <span class="src new">NEW — phenomenological, based on Grosch (1963) bell curve</span>
+  $$g(T_{tread}) = \exp\!\left(-\dfrac{(T_{tread} - T_{opt})^2}{2 \sigma_T^2}\right)$$
+</div>
+
+<h3>D.5 Complete friction model</h3>
+
+<div class="eq new key">
+  <span class="src new">MODEL CORE — combines D.3 and D.4</span>
+  $$\mu_i(T_{tread,i}, \bar{p}_i) = \mu_0(t) \cdot \left(\dfrac{\bar{p}_0}{\bar{p}_i}\right)^{1-n} \cdot \exp\!\left(-\dfrac{(T_{tread,i} - T_{opt})^2}{2 \sigma_T^2}\right)$$
+</div>
+
+<p>where $\mu_0(t)$ is the slowly-decaying reference friction (see Module G). At $t = 0$ on fresh tires, $\mu_0(0) = \mu_0^{fresh}$.</p>
+
+<hr>
+
+<h2>Module E — Slip inversion and sliding power <span class="diff-label diff-new">NEW</span></h2>
+
+<p>Castellano inverts Pacejka to get slip angles from observed forces. You invert the brush model instead.</p>
+
+<h3>E.1 Brush model (Pacejka Ch. 3)</h3>
+
+<p>Normalized slip parameter:</p>
+
+<div class="eq">
+  <span class="src">Pacejka (2012), Ch. 3</span>
+  $$\Theta_i = \dfrac{c_{py} \cdot a_{cp,i}^2}{3 \mu_i F_{z,i}} \cdot |\!\tan\alpha_i|$$
+</div>
+
+<p>The total lateral force in the brush model:</p>
+
+<div class="eq">
+  <span class="src">Pacejka (2012), Ch. 3, Eq. 3.27</span>
+  $$|F_{y,i}| = \mu_i F_{z,i} \left[1 - (1 - \Theta_i)^3\right], \quad \Theta_i \leq 1$$
+</div>
+
+<h3>E.2 Inversion</h3>
+
+<div class="eq new key">
+  <span class="src new">MODEL CORE — inverts brush model for $\Theta_i$</span>
+  $$\Theta_i = 1 - \left(1 - \dfrac{|F_{y,i}|}{\mu_i F_{z,i}}\right)^{1/3}$$
+</div>
+
+<p>Requires $|F_{y,i}| \leq \mu_i F_{z,i}$. If violated, clip $\Theta_i = 1$ (full sliding).</p>
+
+<p>Recover the slip angle:</p>
+
+<div class="eq new">
+  $$\alpha_i = \text{sgn}(F_{y,i}) \cdot \arctan\!\left(\dfrac{3 \mu_i F_{z,i}}{c_{py} \cdot a_{cp,i}^2} \cdot \Theta_i\right)$$
+</div>
+
+<h3>E.3 Lateral slip velocity</h3>
+
+<div class="eq">
+  $$V_{sy,i} = V \cdot \sin(\alpha_i)$$
+</div>
+
+<h3>E.4 Sliding power</h3>
+
+<p>Following Kobayashi et al. (2019) and Castellano (2021):</p>
+
+<div class="eq key">
+  <span class="src">Kobayashi (2019); Castellano (2021) Eqs. 40–47</span>
+  $$P_{slide,i}(t) = |F_{y,i}| \cdot |V_{sy,i}| + |F_{x,i}| \cdot |V_{sx,i}|$$
+</div>
+
+<h3>E.5 Rolling resistance (background heat source)</h3>
+
+<div class="eq">
+  <span class="src">Standard rolling resistance</span>
+  $$P_{rr,i}(t) = C_{rr} \cdot F_{z,i} \cdot V$$
+</div>
+
+<p>with $C_{rr} \approx 0.012$ for racing slicks. Small compared to $P_{slide}$ in corners but provides baseline heating on straights.</p>
+
+<h3>E.6 Total power input per tire</h3>
+
+<div class="eq key">
+  $$P_{total,i}(t) = P_{slide,i}(t) + P_{rr,i}(t)$$
+</div>
+
+<hr>
+
+<h2>Module F — Thermal ODE <span class="diff-label diff-new">NEW</span></h2>
+
+<p>Three-node lumped model following Sorniotti (2009) and Kenins et al. (2019).</p>
+
+<h3>F.1 Tread node</h3>
+
+<div class="eq new key">
+  <span class="src new">Sorniotti (2009); Kenins (2019)</span>
+  $$C_{tread} \dfrac{dT_{tread,i}}{dt} = \alpha_p P_{total,i} - h_{air}(V) A_{tread}(T_{tread,i} - T_{air}) - \dfrac{T_{tread,i} - T_{carc,i}}{R_{tc}}$$
+</div>
+
+<h3>F.2 Carcass node</h3>
+
+<div class="eq new">
+  $$C_{carc} \dfrac{dT_{carc,i}}{dt} = \dfrac{T_{tread,i} - T_{carc,i}}{R_{tc}} - h_{carc} A_{carc}(T_{carc,i} - T_{air}) - \dfrac{T_{carc,i} - T_{gas,i}}{R_{cg}}$$
+</div>
+
+<h3>F.3 Gas node</h3>
+
+<div class="eq new">
+  $$C_{gas} \dfrac{dT_{gas,i}}{dt} = \dfrac{T_{carc,i} - T_{gas,i}}{R_{cg}}$$
+</div>
+
+<h3>F.4 Heat partition coefficient</h3>
+
+<p>Fraction of sliding power entering the tire (remainder heats the road):</p>
+
+<div class="eq new">
+  <span class="src new">Farroni et al. (2015)</span>
+  $$\alpha_p = \dfrac{e_{rubber}}{e_{rubber} + e_{road}}, \quad e = \sqrt{k \rho c_p}$$
+</div>
+
+<p>Approximately $\alpha_p \approx 0.5{-}0.6$ for rubber on asphalt.</p>
+
+<h3>F.5 Speed-dependent convection coefficient</h3>
+
+<div class="eq new">
+  <span class="src new">Forced convection, Reynolds analogy</span>
+  $$h_{air}(V) = h_0 + h_1 \sqrt{V}$$
+</div>
+
+<p>with $h_0 \approx 10$ W/m²K and $h_1 \approx 8$ W/m²K/(m/s)$^{1/2}$.</p>
+
+<h3>F.6 Initial conditions</h3>
+
+<p>At start of stint (after pit stop):</p>
+
+<div class="eq new">
+  $$T_{tread,i}(0) = T_{carc,i}(0) = T_{gas,i}(0) = T_{track} + \Delta T_{blanket}$$
+</div>
+
+<p>$\Delta T_{blanket} \approx 50{-}70°C$ for pre-heated tires per current FIA regulations.</p>
+
+<h3>F.7 Numerical integration</h3>
+
+<p>At 4 Hz telemetry ($\Delta t = 0.25$ s), forward Euler is stable for the tread and carcass time constants (both $> 5$ s):</p>
+
+<div class="eq">
+  $$T_{tread,i}(t + \Delta t) = T_{tread,i}(t) + \dot{T}_{tread,i}(t) \cdot \Delta t$$
+</div>
+
+<p>Same for carcass and gas. For higher accuracy, upgrade to RK4.</p>
+
+<hr>
+
+<h2>Module G — Cumulative energy and degradation <span class="diff-label diff-new">NEW</span></h2>
+
+<h3>G.1 Cumulative tire energy</h3>
+
+<div class="eq key">
+  <span class="src">Todd et al. (2025); Castellano (2021)</span>
+  $$E_{tire,i}(t) = \int_0^t P_{total,i}(\tau) \, d\tau$$
+</div>
+
+<p>Numerical: $E_{tire,i}(t+\Delta t) = E_{tire,i}(t) + P_{total,i}(t) \cdot \Delta t$.</p>
+
+<h3>G.2 Thermal degradation of reference friction</h3>
+
+<p>Sustained high temperatures cause permanent chemical degradation of the rubber — reversion of vulcanization, oxidation, and loss of network integrity. Model $\mu_0$ as a slowly decaying state:</p>
+
+<div class="eq new">
+  <span class="src new">NEW — Arrhenius-like thermal aging</span>
+  $$\dfrac{d\mu_0}{dt} = -\beta_{therm} \cdot \mu_0 \cdot \exp\!\left(\dfrac{T_{tread,i} - T_{ref}}{T_{act}}\right)$$
+</div>
+
+<p>with $T_{act} \approx 20{-}30°C$ (every $T_{act}$ degrees doubles the degradation rate), and $\beta_{therm}$ calibrated from observed stint-end grip loss.</p>
+
+<h3>G.3 Mechanical wear</h3>
+
+<p>Rubber physically abraded from the tread:</p>
+
+<div class="eq new">
+  <span class="src new">NEW — energy-proportional wear</span>
+  $$\dfrac{d \, d_{tread}}{dt} = -k_{wear} \cdot P_{slide,i}$$
+</div>
+
+<p>As $d_{tread}$ decreases, $R_{tc} = d_{tread}/(k_{rubber} A_{tread})$ decreases too — thinner tread heats and cools faster.</p>
+
+<h3>G.4 Lap-time penalty from grip loss</h3>
+
+<p>Corner speed scales as $V \propto \sqrt{\mu}$, so time through a corner scales as $1/\sqrt{\mu}$. A first-order expansion:</p>
+
+<div class="eq new">
+  $$\Delta t_{lap}(t) \approx \dfrac{t_{lap}^{ref}}{2} \cdot \dfrac{\mu_0^{fresh} - \mu_0(t)}{\mu_0^{fresh}}$$
+</div>
+
+<hr>
+
+<h2>The feedback loop at each timestep</h2>
+
+<p>The coupling between Module D (friction) and Module F (thermal) creates a feedback loop that must be iterated:</p>
+
+<ol style="margin-left:1.5rem; color:var(--fg2); font-size:0.93rem;">
+<li>Read telemetry at time $t$: $V, X, Y, RPM, \ldots$</li>
+<li><strong>Module A:</strong> compute $a_{lat}, a_{long}, V_{sx}$</li>
+<li><strong>Module B:</strong> compute $F_{z,i}$ for each tire (uses $a_{lat}, a_{long}, V$)</li>
+<li><strong>Module C:</strong> compute $F_{y,i}, F_{x,i}$ for each tire (uses $F_{z,i}$ from B)</li>
+<li><strong>Module D:</strong> compute $a_{cp,i}, \bar{p}_i$, then $\mu_i$ using <em>previous timestep's</em> $T_{tread,i}$ and $\mu_0(t)$</li>
+<li><strong>Module E:</strong> invert brush model to get $\Theta_i, \alpha_i, V_{sy,i}$. Compute $P_{slide,i}, P_{total,i}$.</li>
+<li><strong>Module F:</strong> integrate thermal ODEs forward by $\Delta t$. Update $T_{tread,i}, T_{carc,i}, T_{gas,i}$.</li>
+<li><strong>Module G:</strong> integrate $E_{tire,i}$ forward. Update $\mu_0$ via G.2. Update $d_{tread}$ via G.3.</li>
+<li>Repeat for $t + \Delta t$.</li>
+</ol>
+
+<div class="note">
+<strong>Why this converges without iteration:</strong> The friction at time $t$ uses the temperature at time $t$ (computed from energy accumulated through time $t$). This is causally correct — no iteration needed within a timestep. The feedback is in time, not within a step.
+</div>
+
+<hr>
+
+<h2>Parameter summary</h2>
+
+<table>
+<tr><th>Parameter</th><th>Symbol</th><th>Value</th><th>Source/Status</th></tr>
+<tr><td>Total vehicle mass</td><td>$M_{tot}$</td><td>798 kg + fuel</td><td>FIA regs (fuel: decreases ~1 kg/lap)</td></tr>
+<tr><td>Weight distribution (front)</td><td>$WD$</td><td>0.44</td><td>Estimated F1 spec</td></tr>
+<tr><td>Wheelbase</td><td>$WB$</td><td>3.6 m</td><td>Published</td></tr>
+<tr><td>Track width</td><td>$T_f, T_r$</td><td>1.60 m</td><td>Published</td></tr>
+<tr><td>CG height</td><td>$H_{CG}$</td><td>0.28 m</td><td>Estimated</td></tr>
+<tr><td>Roll stiffness ratio (front)</td><td>$K_{rf}/(K_{rf}+K_{rr})$</td><td>0.60</td><td>Estimated, tunable</td></tr>
+<tr><td>Aero coefficient</td><td>$C_L A$</td><td>5.5 m²</td><td>Estimated F1 spec</td></tr>
+<tr><td>Aero balance (front)</td><td>$\xi$</td><td>0.45</td><td>Estimated</td></tr>
+<tr><td>Drag coefficient</td><td>$C_D A$</td><td>1.3 m²</td><td>Estimated</td></tr>
+<tr><td>Tire radius (unloaded)</td><td>$R_0$</td><td>0.330 m</td><td>Pirelli 18"</td></tr>
+<tr><td>Tread half-width</td><td>$b_{tread}$</td><td>0.15 m</td><td>Tire dims</td></tr>
+<tr><td>Radial stiffness</td><td>$K_{rad}$</td><td>250 kN/m</td><td>Estimated</td></tr>
+<tr><td>Brake bias (front)</td><td>$BB$</td><td>0.58</td><td>Approximate, tunable</td></tr>
+<tr><td>Final drive</td><td>$G_{final}$</td><td>~3.5</td><td>Per team, estimable</td></tr>
+<tr><td>Rolling resistance</td><td>$C_{rr}$</td><td>0.012</td><td>Literature</td></tr>
+<tr><td colspan="4" style="background:var(--hl); font-weight:600; color:var(--fg)">Calibratable parameters (per compound)</td></tr>
+<tr><td>Reference friction</td><td>$\mu_0^{fresh}$</td><td>~1.8</td><td>From max $a_{lat}$ in slow corners</td></tr>
+<tr><td>Reference pressure</td><td>$\bar{p}_0$</td><td>~500 kPa</td><td>Corresponding to $\mu_0^{fresh}$</td></tr>
+<tr><td>Load sensitivity exponent</td><td>$n$</td><td>0.80</td><td>From $\mu$ vs speed across corners</td></tr>
+<tr><td>Optimal tread temperature</td><td>$T_{opt}$</td><td>100°C</td><td>Calibrate from stint performance</td></tr>
+<tr><td>Temperature window width</td><td>$\sigma_T$</td><td>20°C</td><td>Calibrate from performance vs temp</td></tr>
+<tr><td>Heat partition</td><td>$\alpha_p$</td><td>0.55</td><td>Calibrate</td></tr>
+<tr><td>Thermal masses</td><td>$C_{tread}, C_{carc}, C_{gas}$</td><td>varies</td><td>Calibrate to time constants</td></tr>
+<tr><td>Thermal resistances</td><td>$R_{tc}, R_{cg}$</td><td>varies</td><td>Calibrate</td></tr>
+<tr><td>Cornering stiffness param</td><td>$c_{py}$</td><td>varies</td><td>Calibrate</td></tr>
+<tr><td>Thermal degradation rate</td><td>$\beta_{therm}$</td><td>~$10^{-5}$ s⁻¹</td><td>From stint-end grip loss</td></tr>
+<tr><td>Wear rate</td><td>$k_{wear}$</td><td>~$10^{-12}$ m/J</td><td>Calibrate</td></tr>
+</table>
+
+<hr>
+
+<h2>What's distinctly yours vs. Castellano's</h2>
+
+<table>
+<tr><th>Aspect</th><th>Castellano (2021)</th><th>This model</th></tr>
+<tr><td>Data source</td><td>Accelerometers, wheel speed sensors, suspension sensors</td><td>FastF1 public data (speed, XY, RPM)</td></tr>
+<tr><td>Acceleration measurement</td><td>Direct, accelerometer</td><td>Derived: $a_{lat} = V^2\kappa$</td></tr>
+<tr><td>Roll angle</td><td>Measured via suspension sensors</td><td>Collapsed into simplified elastic model</td></tr>
+<tr><td>Tire model</td><td>Pacejka (team-provided coefficients)</td><td>Brush model inversion (no coefficients needed)</td></tr>
+<tr><td>Friction coefficient</td><td>From Pacejka black box</td><td>Physics-based: $\mu(T, \bar{p})$ from GW + Grosch</td></tr>
+<tr><td>Thermal model</td><td>None</td><td>Three-node lumped ODE (Sorniotti)</td></tr>
+<tr><td>Contact mechanics</td><td>Not addressed</td><td>Hertzian patch length and mean pressure</td></tr>
+<tr><td>Output</td><td>Per-tire energy per lap</td><td>Per-tire energy + grip evolution + lap time prediction</td></tr>
+<tr><td>Goal</td><td>Compare setups for tire selection</td><td>Predict degradation for race strategy</td></tr>
+</table>
+
+<script>
+  renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$', display: false}
+    ],
+    throwOnError: false
+  });
+</script>
+</body>
+</html>

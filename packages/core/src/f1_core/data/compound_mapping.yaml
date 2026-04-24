@@ -1,0 +1,19 @@
+# Pirelli compound allocation per race: maps FastF1 public label -> Pirelli letter (C1-C5).
+# Keyed by "{year}-{round_zero_padded}".
+# Source: Pirelli press release + FIA tire allocation.
+# Seed entries for testing; extend as we ingest more races.
+
+"2023-01":  # Bahrain
+  SOFT: C3
+  MEDIUM: C2
+  HARD: C1
+
+"2023-04":  # Azerbaijan
+  SOFT: C5
+  MEDIUM: C4
+  HARD: C3
+
+"2024-01":  # Bahrain
+  SOFT: C3
+  MEDIUM: C2
+  HARD: C1

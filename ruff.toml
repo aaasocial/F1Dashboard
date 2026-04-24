@@ -1,0 +1,28 @@
+# F1 Dashboard — repo-wide lint + format config (Ruff 0.7+)
+line-length = 100
+target-version = "py312"
+extend-exclude = [
+    ".venv",
+    ".data",
+    "frontend",
+    "notebooks",
+    "**/.pytest_cache",
+    "**/__pycache__",
+]
+
+[lint]
+# E: pycodestyle errors, F: pyflakes, I: isort, UP: pyupgrade,
+# B: flake8-bugbear, SIM: flake8-simplify, RUF: ruff-specific
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # FastAPI Depends() in defaults is intentional
+]
+
+[lint.per-file-ignores]
+"**/tests/**" = ["B", "SIM"]  # relax in tests
+"**/__init__.py" = ["F401"]   # re-exports are fine
+
+[format]
+quote-style = "double"
+indent-style = "space"
