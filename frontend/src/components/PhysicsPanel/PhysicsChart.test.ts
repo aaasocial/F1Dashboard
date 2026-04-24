@@ -56,9 +56,8 @@ describe('PhysicsChart D3 path generation', () => {
     // hi (higher value) → lower SVG y (visually higher)
     // lo (lower value) → higher SVG y (visually lower)
     // This verifies CI band orientation is correct
-    const padL = 40, padT = 8, padB = 6
-    const w = 480, h = 70
-    const iw = w - padL - 12
+    const padT = 8, padB = 6
+    const h = 70
     const ih = h - padT - padB
     const sy = scaleLinear().domain([88, 118]).range([padT + ih, padT])
     expect(sy(93)).toBeGreaterThan(sy(99))  // lo (93) has higher SVG y than hi (99)
