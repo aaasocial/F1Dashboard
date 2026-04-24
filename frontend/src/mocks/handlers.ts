@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw'
+import { BAHRAIN_LEC_S1 } from './fixtures/bahrain-lec-s1'
 
 const RACES_FIXTURE = [
   {
@@ -44,51 +45,15 @@ export const handlers = [
           })}\n\n`
           controller.enqueue(new TextEncoder().encode(evt))
         }
-        // Final event: minimal valid SimulationResult in FRONTEND shape (after mapper)
-        // Fields: meta (not metadata), laps (not per_lap), plus track/sectorBounds/turns
-        const finalEvt = `event: simulation_complete\ndata: ${JSON.stringify({
-          meta: {
-            race: {
-              id: '2024_bahrain',
-              name: 'Bahrain Grand Prix',
-              round: 1,
-              season: 2024,
-              circuit: 'Bahrain International Circuit',
-            },
-            driver: {
-              code: 'LEC',
-              number: 16,
-              name: 'C. Leclerc',
-              team: 'Ferrari',
-              teamColor: '#DC0000',
-            },
-            stint: {
-              id: 1,
-              compound: 'MEDIUM',
-              compoundColor: '#FFD700',
-              startLap: 1,
-              endLap: 22,
-              lapCount: 22,
-              startAge: 0,
-            },
-            calibration_id: 1,
-            model_schema_version: '1.0.0',
-            fastf1_version: '3.8.2',
-            run_id: 'test',
-          },
-          laps: [],
-          track: [[0.5, 0.88]],
-          sectorBounds: [
-            [0, 86],
-            [86, 172],
-            [172, 258],
-          ],
-          turns: [{ n: 1, at: 0.13 }],
-        })}\n\n`
+        const finalEvt = `event: simulation_complete\ndata: ${JSON.stringify(BAHRAIN_LEC_S1)}\n\n`
         controller.enqueue(new TextEncoder().encode(finalEvt))
         controller.close()
       },
     })
     return new HttpResponse(stream, { headers: { 'Content-Type': 'text/event-stream' } })
+  }),
+  http.post('/api/sessions/upload', async () => {
+    await new Promise(r => setTimeout(r, 80))
+    return HttpResponse.json({ session_id: 'test-session-abc123' })
   }),
 ]
