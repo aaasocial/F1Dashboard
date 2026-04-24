@@ -73,6 +73,8 @@ export async function runSimulationStream(
 
   setLoading(true)
   setError(null)
+  // Record run params before fetch so RETRY works even if request errors immediately
+  useSimulationStore.getState().setLastRunParams({ raceId, driverCode, stintIndex })
 
   try {
     const response = await fetch(`${API_BASE}/api/simulate/stream`, {
