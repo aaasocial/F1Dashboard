@@ -255,7 +255,7 @@ export function TopStrip() {
 
         {/* Speed toggle */}
         <div style={{ display: 'flex', gap: 0, border: '1px solid var(--rule-strong)', flexShrink: 0 }}>
-          {([1, 2, 4, 8] as const).map(s => (
+          {([1, 2, 4] as const).map(s => (
             <button key={s} onClick={() => setSpeed(s)} style={{
               padding: '4px 8px',
               background: speed === s ? 'var(--rule-strong)' : 'transparent',

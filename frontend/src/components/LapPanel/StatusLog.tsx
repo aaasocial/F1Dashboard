@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useUIStore } from '../../stores/useUIStore'
 import type { LapData, Corner } from '../../lib/types'
 
@@ -45,7 +44,8 @@ interface StatusLogProps {
 }
 
 export function StatusLog({ laps }: StatusLogProps) {
-  const [collapsed, setCollapsed] = useState(false)
+  const collapsed = useUIStore(s => s.statusLogCollapsed)
+  const toggleStatusLog = useUIStore(s => s.toggleStatusLog)
   const hoveredLap = useUIStore(s => s.hoveredLap)
 
   const events = generateEvents(laps)
@@ -60,7 +60,7 @@ export function StatusLog({ laps }: StatusLogProps) {
     }}>
       {/* Collapsible header */}
       <div
-        onClick={() => setCollapsed(c => !c)}
+        onClick={toggleStatusLog}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '0 14px',
@@ -82,39 +82,42 @@ export function StatusLog({ laps }: StatusLogProps) {
         <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{collapsed ? '▼' : '▲'}</span>
       </div>
 
-      {/* Log entries */}
-      {!collapsed && (
-        <div style={{
-          maxHeight: 140, overflowY: 'auto',
-          borderTop: '1px solid var(--rule)',
-        }}>
-          {events.length === 0 ? (
-            <div style={{ padding: '8px 14px', fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
-              NO EVENTS
-            </div>
-          ) : (
-            events.map((evt, i) => {
-              const active = hoveredLap === evt.lap
-              return (
-                <div key={i} style={{
-                  padding: '4px 14px 4px 16px',
-                  borderLeft: `2px solid ${active ? levelColor[evt.level] : 'transparent'}`,
-                  background: active ? 'var(--panel-header-hi)' : 'transparent',
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  fontFamily: 'var(--mono)',
-                }}>
-                  <span style={{ fontSize: 8, color: 'var(--text-muted)', minWidth: 28 }}>
-                    L{String(evt.lap).padStart(2, '0')}
-                  </span>
-                  <span style={{ fontSize: 8, color: levelColor[evt.level], flex: 1 }}>
-                    {evt.message}
-                  </span>
-                </div>
-              )
-            })
-          )}
-        </div>
-      )}
+      {/* Log entries — max-height CSS animation per D-07 */}
+      <div
+        data-testid="status-log-body"
+        style={{
+          maxHeight: collapsed ? 0 : 140,
+          overflowY: collapsed ? 'hidden' : 'auto',
+          borderTop: collapsed ? 'none' : '1px solid var(--rule)',
+          transition: 'max-height 220ms ease-in-out',
+        }}
+      >
+        {events.length === 0 ? (
+          <div style={{ padding: '8px 14px', fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
+            NO EVENTS
+          </div>
+        ) : (
+          events.map((evt, i) => {
+            const active = hoveredLap === evt.lap
+            return (
+              <div key={i} style={{
+                padding: '4px 14px 4px 16px',
+                borderLeft: `2px solid ${active ? levelColor[evt.level] : 'transparent'}`,
+                background: active ? 'var(--panel-header-hi)' : 'transparent',
+                display: 'flex', alignItems: 'center', gap: 10,
+                fontFamily: 'var(--mono)',
+              }}>
+                <span style={{ fontSize: 8, color: 'var(--text-muted)', minWidth: 28 }}>
+                  L{String(evt.lap).padStart(2, '0')}
+                </span>
+                <span style={{ fontSize: 8, color: levelColor[evt.level], flex: 1 }}>
+                  {evt.message}
+                </span>
+              </div>
+            )
+          })
+        )}
+      </div>
     </div>
   )
 }
