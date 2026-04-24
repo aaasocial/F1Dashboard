@@ -135,7 +135,7 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
 - [x] 05-05-PLAN.md — MapPanel: FastF1 X/Y track utilities, SVG circuit with 3-sector coloring, car dot, turn labels (VIZ-01)
 - [x] 05-06-PLAN.md — LapPanel: pace trace, status log, big lap time, deltas, sector cards, stint projection (VIZ-03, VIZ-07)
 - [x] 05-07-PLAN.md — PhysicsPanel: 4 metric tabs × 4 cornerwise CI band charts, hover crosshair (VIZ-03, VIZ-04, VIZ-05, VIZ-06)
-- [ ] 05-08-PLAN.md — POST /simulate/stream SSE backend endpoint: 7 module_complete events + simulation_complete (DASH-03)
+- [x] 05-08-PLAN.md — POST /simulate/stream SSE backend endpoint: 7 module_complete events + simulation_complete (DASH-03)
 - [ ] 05-09-PLAN.md — App shell wiring: cockpit grid, SSE consumer hook, MSW dev activation, ErrorBoundary, human-verify (DASH-02, DASH-03, VIZ-05)
 
 ### Phase 6: Playback, Interactions & Sharing
