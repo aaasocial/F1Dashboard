@@ -1,12 +1,39 @@
 import type React from 'react'
+import { useRef, useCallback } from 'react'
 import { useUIStore } from '../../stores/useUIStore'
 import { useSimulationStore } from '../../stores/useSimulationStore'
 import { useRaces, useDrivers, useStints } from '../../api/queries'
 import { compoundColor } from '../../lib/scales'
+import { runSimulationStream } from '../../lib/sse'
 import { Scrubber } from './Scrubber'
 import type { Race, Driver, Stint } from '../../lib/types'
 
 export function TopStrip() {
+  const abortRef = useRef<AbortController | null>(null)
+
+  const handleRunModel = useCallback(() => {
+    const { selectedRaceId, selectedDriverCode, selectedStintIndex, loading } =
+      useSimulationStore.getState()
+
+    if (!selectedRaceId || !selectedDriverCode || selectedStintIndex == null) return
+    if (loading) {
+      // Cancel in-flight simulation if user clicks Run again
+      abortRef.current?.abort()
+      return
+    }
+
+    abortRef.current?.abort()  // abort any previous run
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    void runSimulationStream(
+      selectedRaceId,
+      selectedDriverCode,
+      selectedStintIndex,
+      controller.signal,
+    )
+  }, [])
+
   const pos = useUIStore(s => s.pos)
   const mode = useUIStore(s => s.mode)
   const playing = useUIStore(s => s.playing)
@@ -153,9 +180,9 @@ export function TopStrip() {
             ))}
           </select>
 
-          {/* RUN MODEL placeholder — wired in Plan 09 */}
+          {/* RUN MODEL — wired in Plan 09 via runSimulationStream */}
           <button
-            onClick={() => console.log('[TopStrip] RUN MODEL — wired in Plan 09')}
+            onClick={handleRunModel}
             disabled={!selectedDriverCode || selectedStintIndex === null}
             style={{
               background: (!selectedDriverCode || selectedStintIndex === null) ? 'transparent' : 'var(--accent)',
