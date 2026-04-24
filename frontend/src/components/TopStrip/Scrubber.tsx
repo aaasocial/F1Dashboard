@@ -1,13 +1,25 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useUIStore } from '../../stores/useUIStore'
+import { useSimulationStore } from '../../stores/useSimulationStore'
+import type { LapData } from '../../lib/types'
 
 interface ScrubberProps {
   maxLap: number
 }
 
+// D-04: sector colors from CONTEXT.md
+const SECTOR_COLORS = ['#3a98b4', '#2a7a93', '#1d6278'] as const
+
+function derivePitLaps(laps: LapData[] | undefined): number[] {
+  if (!laps) return []
+  // Pit stops: laps after lap 1 where stint_age === 0 (start of subsequent stint)
+  return laps.filter(l => l.lap_number > 1 && l.stint_age === 0).map(l => l.lap_number)
+}
+
 export function Scrubber({ maxLap }: ScrubberProps) {
   const pos = useUIStore(s => s.pos)
   const seek = useUIStore(s => s.seek)
+  const laps = useSimulationStore(s => s.data?.laps)
   const ref = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -32,19 +44,57 @@ export function Scrubber({ maxLap }: ScrubberProps) {
     }
   }, [dragging, onPointer])
 
+  // D-04 sector segments — three equal thirds across maxLap
+  const sectorRanges = [
+    { start: 1, end: 1 + (maxLap - 1) / 3 },
+    { start: 1 + (maxLap - 1) / 3, end: 1 + 2 * (maxLap - 1) / 3 },
+    { start: 1 + 2 * (maxLap - 1) / 3, end: maxLap },
+  ]
+
+  // D-04 pit markers — laps after lap 1 with stint_age === 0
+  const pitLaps = derivePitLaps(laps)
+
   return (
     <div
       ref={ref}
       onPointerDown={e => { setDragging(true); onPointer(e) }}
       style={{ height: 24, position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+      data-testid="scrubber"
     >
-      {/* Track rail */}
+      {/* Track rail (base) */}
       <div style={{ position: 'absolute', left: 0, right: 0, top: 10, height: 3, background: 'var(--rule-strong)' }} />
-      {/* Progress fill */}
-      <div style={{ position: 'absolute', left: 0, top: 10, height: 3, width: `${frac * 100}%`, background: 'var(--accent)' }} />
+
+      {/* Sector segments — D-04 */}
+      {sectorRanges.map((s, i) => {
+        const left = ((s.start - 1) / Math.max(1, maxLap - 1)) * 100
+        const width = ((s.end - s.start) / Math.max(1, maxLap - 1)) * 100
+        return (
+          <div
+            key={`sec-${i}`}
+            data-testid={`sector-segment-${i}`}
+            style={{
+              position: 'absolute',
+              left: `${left}%`,
+              width: `${width}%`,
+              top: 10,
+              height: 3,
+              background: SECTOR_COLORS[i],
+              opacity: 0.65,
+            }}
+          />
+        )
+      })}
+
+      {/* Progress fill (overlays sector tint) */}
+      <div style={{
+        position: 'absolute', left: 0, top: 10, height: 3,
+        width: `${frac * 100}%`,
+        background: 'var(--accent)', opacity: 0.85,
+      }} />
+
       {/* Per-lap tick marks */}
       {Array.from({ length: maxLap }).map((_, i) => (
-        <div key={i} style={{
+        <div key={`tick-${i}`} style={{
           position: 'absolute',
           left: `${(i / Math.max(1, maxLap - 1)) * 100}%`,
           top: 7, width: 1, height: 9,
@@ -52,7 +102,30 @@ export function Scrubber({ maxLap }: ScrubberProps) {
           transform: 'translateX(-0.5px)',
         }} />
       ))}
-      {/* Handle — 3×16px accent bar with glow */}
+
+      {/* Pit-stop markers — D-04 */}
+      {pitLaps.map(lapNum => {
+        const left = ((lapNum - 1) / Math.max(1, maxLap - 1)) * 100
+        return (
+          <div
+            key={`pit-${lapNum}`}
+            data-testid="pit-marker"
+            title={`Pit stop — lap ${lapNum}`}
+            style={{
+              position: 'absolute',
+              left: `${left}%`,
+              top: 4,
+              width: 2,
+              height: 16,
+              background: '#ffffff',
+              transform: 'translateX(-1px)',
+              pointerEvents: 'none',
+            }}
+          />
+        )
+      })}
+
+      {/* Handle */}
       <div style={{
         position: 'absolute',
         left: `${frac * 100}%`,
