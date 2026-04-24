@@ -1,4 +1,5 @@
 import { useUIStore } from '../../stores/useUIStore'
+import { copyTireMetrics } from '../../lib/tireClipboard'
 import type { LapData, Corner } from '../../lib/types'
 
 const CORNERS: Corner[] = ['fl', 'fr', 'rl', 'rr']
@@ -48,6 +49,10 @@ export function CarFooter({ lap }: CarFooterProps) {
             key={c}
             onMouseEnter={() => setHoveredCorner(c)}
             onMouseLeave={() => setHoveredCorner(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              if (lap) void copyTireMetrics(c, lap)
+            }}
             style={{
               padding: '8px 10px 10px',
               background: active ? 'var(--panel-header-hi)' : 'transparent',

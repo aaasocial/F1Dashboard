@@ -4,6 +4,7 @@
 // Ported from design_handoff_f1_cockpit/design/cockpit-car.jsx CarWheel()
 
 import { tempToViridis, CORNER_COLORS, CORNER_LABELS } from '../../lib/scales'
+import { copyTireMetrics } from '../../lib/tireClipboard'
 import type { LapData, Corner } from '../../lib/types'
 
 interface WheelGeom {
@@ -88,6 +89,10 @@ export function CarWheel({ corner, geom, lap, hovered, onHover }: CarWheelProps)
       style={{ cursor: 'pointer' }}
       onMouseEnter={() => onHover(corner)}
       onMouseLeave={() => onHover(null)}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        if (lap) void copyTireMetrics(corner, lap)
+      }}
     >
       {/* 1. Brake glow ellipse behind tire */}
       <ellipse cx={cx} cy={cy} rx={w * 0.75} ry={h * 0.55}
