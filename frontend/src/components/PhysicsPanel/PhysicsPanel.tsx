@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useSimulationStore } from '../../stores/useSimulationStore'
 import { useUIStore } from '../../stores/useUIStore'
 import { PanelHeader } from '../shared/PanelHeader'
 import { PanelSkeleton } from '../shared/Skeleton'
 import { PhysicsChart } from './PhysicsChart'
+import { ChartContextMenu, type ExportFormat } from './ChartContextMenu'
+import { exportPng, exportSvg, exportCsv } from '../../lib/export'
 import type { Corner } from '../../lib/types'
 
 type MetricKey = 't_tread' | 'grip' | 'e_tire' | 'slip_angle'
@@ -29,8 +31,11 @@ const CORNERS: Corner[] = ['fl', 'fr', 'rl', 'rr']
 
 export function PhysicsPanel() {
   const [metric, setMetric] = useState<MetricKey>('t_tread')
+  const [menuPos, setMenuPos] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
+  const tabPanelRef = useRef<HTMLDivElement>(null)
   const data = useSimulationStore(s => s.data)
   const pos = useUIStore(s => s.pos)
+  const showToast = useUIStore(s => s.showToast)
 
   if (!data) return <PanelSkeleton label="PHYSICS — SELECT STINT AND RUN MODEL" />
 
@@ -39,6 +44,60 @@ export function PhysicsPanel() {
   const revealedLaps = data.laps.slice(0, lapIdx + 1)
 
   const cfg = METRICS[metric]
+
+  async function composeExportSvg(): Promise<SVGSVGElement | null> {
+    const root = tabPanelRef.current
+    if (!root) return null
+    const svgs = Array.from(root.querySelectorAll('svg'))
+    if (svgs.length === 0) return null
+    const ns = 'http://www.w3.org/2000/svg'
+    const composed = document.createElementNS(ns, 'svg')
+    let totalW = 0, totalH = 0
+    svgs.forEach(svg => {
+      const r = svg.getBoundingClientRect()
+      totalW = Math.max(totalW, r.width)
+      totalH += r.height
+    })
+    composed.setAttribute('width', String(totalW))
+    composed.setAttribute('height', String(totalH))
+    composed.setAttribute('xmlns', ns)
+    let y = 0
+    svgs.forEach(svg => {
+      const r = svg.getBoundingClientRect()
+      const g = document.createElementNS(ns, 'g')
+      g.setAttribute('transform', `translate(0, ${y})`)
+      // Clone children of each svg into the group
+      Array.from(svg.childNodes).forEach(node => {
+        g.appendChild(node.cloneNode(true))
+      })
+      composed.appendChild(g)
+      y += r.height
+    })
+    return composed
+  }
+
+  async function handleExport(format: ExportFormat) {
+    setMenuPos({ open: false, x: 0, y: 0 })
+    try {
+      if (format === 'csv') {
+        if (!data) return
+        exportCsv(data.laps, metric, `physics-${metric}.csv`)
+        showToast('CSV DOWNLOADED')
+        return
+      }
+      const composed = await composeExportSvg()
+      if (!composed) return
+      if (format === 'svg') {
+        exportSvg(composed, `physics-${metric}.svg`)
+        showToast('SVG DOWNLOADED')
+      } else if (format === 'png') {
+        await exportPng(composed, `physics-${metric}.png`)
+        showToast('PNG DOWNLOADED')
+      }
+    } catch (err) {
+      showToast(`EXPORT FAILED — ${(err as Error).message}`)
+    }
+  }
 
   return (
     <div style={{
@@ -96,14 +155,20 @@ export function PhysicsPanel() {
       </div>
 
       {/* 4 stacked small-multiple charts — equal height, one per corner */}
-      <div style={{
-        display: 'grid',
-        gridTemplateRows: 'repeat(4, 1fr)',
-        minHeight: 0,
-        overflow: 'hidden',
-      }}
+      <div
+        ref={tabPanelRef}
+        style={{
+          display: 'grid',
+          gridTemplateRows: 'repeat(4, 1fr)',
+          minHeight: 0,
+          overflow: 'hidden',
+        }}
         role="tabpanel"
         aria-label={`${cfg.label} charts`}
+        onContextMenu={e => {
+          e.preventDefault()
+          setMenuPos({ open: true, x: e.clientX, y: e.clientY })
+        }}
       >
         {CORNERS.map((c, i) => (
           <PhysicsChart
@@ -117,6 +182,14 @@ export function PhysicsPanel() {
           />
         ))}
       </div>
+
+      <ChartContextMenu
+        open={menuPos.open}
+        x={menuPos.x}
+        y={menuPos.y}
+        onExport={handleExport}
+        onClose={() => setMenuPos({ open: false, x: 0, y: 0 })}
+      />
     </div>
   )
 }
