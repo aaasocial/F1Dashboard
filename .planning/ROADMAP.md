@@ -31,7 +31,7 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
 - [x] **Phase 2: Physics Model (Modules A–G)** — Seven-module forward simulation, strict A→B→C→D→E→F→G sequence, unit-tested physical invariants, ~100 ms/stint benchmark
 - [x] **Phase 3: Bayesian Calibration Pipeline** — Five-stage offline CLI (aero → friction → thermal → degradation → validation), PyMC+NumPyro for Stage 4, ArviZ NetCDF + SQLite versioning, baseline linear model sanity check
 - [x] **Phase 4: Simulation API & Uncertainty Quantification** — POST /simulate wires physics + posteriors, K=100 vectorized CI draws, <2 s end-to-end, session upload endpoint, calibration summary endpoint
-- [ ] **Phase 5: Dashboard Shell & Visualization** — React+TypeScript+visx shell, six-zone layout, cascade pickers, multi-chart panel with CI bands, tire array, track map, status log, linked hover
+- [x] **Phase 5: Dashboard Shell & Visualization** — React+TypeScript+visx shell, six-zone layout, cascade pickers, multi-chart panel with CI bands, tire array, track map, status log, linked hover
 - [ ] **Phase 6: Playback, Interactions & Sharing** — Transport bar + scrub, keyboard shortcuts, right-click export (PNG/SVG/CSV), clipboard copy, URL hash state, drag-and-drop session upload, provenance footer
 - [ ] **Phase 7: Deployment & Operations** — Fly.io backend with persistent volume, Vercel frontend, CORS hardening, healthz, cache pre-warm with 10 recent sessions
 
@@ -136,7 +136,7 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
 - [x] 05-06-PLAN.md — LapPanel: pace trace, status log, big lap time, deltas, sector cards, stint projection (VIZ-03, VIZ-07)
 - [x] 05-07-PLAN.md — PhysicsPanel: 4 metric tabs × 4 cornerwise CI band charts, hover crosshair (VIZ-03, VIZ-04, VIZ-05, VIZ-06)
 - [x] 05-08-PLAN.md — POST /simulate/stream SSE backend endpoint: 7 module_complete events + simulation_complete (DASH-03)
-- [ ] 05-09-PLAN.md — App shell wiring: cockpit grid, SSE consumer hook, MSW dev activation, ErrorBoundary, human-verify (DASH-02, DASH-03, VIZ-05)
+- [x] 05-09-PLAN.md — App shell wiring: cockpit grid, SSE consumer hook, MSW dev activation, ErrorBoundary, human-verify (DASH-02, DASH-03, VIZ-05)
 
 ### Phase 6: Playback, Interactions & Sharing
 **Goal:** A user can play back a stint lap-by-lap, scrub or step with keyboard, export any chart, copy tire metrics, drop in a FastF1 cache zip, and share a URL that restores the exact scenario on reload — all with a provenance footer that makes the result citable.
@@ -150,16 +150,13 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
   5. The full scenario (race, driver, stint, current lap, any parameter overrides) is encoded in the URL hash; pasting that URL into a fresh browser restores the exact view.
   6. Dragging a zip of a FastF1 cache directory onto the app fires `POST /sessions/upload`, and on success the app loads that session and runs `/simulate` against it without any further FastF1 fetch.
   7. The data provenance footer shows FastF1 library version, model schema version, calibration ID, calibration date, and the "Unofficial fan tool — not affiliated with F1, FIA, or Pirelli" disclaimer on every page.
-**Plans:** 9 plans
-- [x] 05-01-PLAN.md — Vite scaffold, Tailwind 4 CSS tokens, self-hosted fonts, Wave 0 test infra (DASH-04, VIZ-06)
-- [x] 05-02-PLAN.md — TypeScript types, D3 color/format utils, Zustand stores, TanStack Query hooks (DASH-01, VIZ-05, VIZ-06)
-- [x] 05-03-PLAN.md — TopStrip: cascade pickers, mode toggle, scrubber, lap counter, shared PanelHeader/Skeleton (DASH-01, DASH-04)
-- [x] 05-04-PLAN.md — CarPanel: SF-24 chassis SVG, CarWheel ×4 with viridis/wear/grip/CI halo, footer readouts (VIZ-02, VIZ-05, VIZ-06)
-- [x] 05-05-PLAN.md — MapPanel: FastF1 X/Y track utilities, SVG circuit with 3-sector coloring, car dot, turn labels (VIZ-01)
-- [x] 05-06-PLAN.md — LapPanel: pace trace, status log, big lap time, deltas, sector cards, stint projection (VIZ-03, VIZ-07)
-- [x] 05-07-PLAN.md — PhysicsPanel: 4 metric tabs × 4 cornerwise CI band charts, hover crosshair (VIZ-03, VIZ-04, VIZ-05, VIZ-06)
-- [ ] 05-08-PLAN.md — POST /simulate/stream SSE backend endpoint: 7 module_complete events + simulation_complete (DASH-03)
-- [ ] 05-09-PLAN.md — App shell wiring: cockpit grid, SSE consumer hook, MSW dev activation, ErrorBoundary, human-verify (DASH-02, DASH-03, VIZ-05)
+**Plans:** 6 plans
+- [ ] 06-01-PLAN.md — Wave 0 test infra: Playwright + E2E spec stubs + export.ts/useDragUpload scaffolds + Toast + MSW upload handler (PLAY-01, PLAY-02, INT-01..INT-06)
+- [ ] 06-02-PLAN.md — Store extensions + TopStrip step/jump/0.5× + ⓘ button + error/RETRY banner + Scrubber sector colors + pit markers (PLAY-01, PLAY-02, SC-3 carry-in)
+- [ ] 06-03-PLAN.md — Global keyboard shortcuts + ShortcutsModal + MapFullscreenOverlay + StatusLog Zustand collapse + Toast mount (INT-01)
+- [ ] 06-04-PLAN.md — Chart context menu (PNG/SVG/CSV export) + tire clipboard copy (INT-02, INT-03)
+- [ ] 06-05-PLAN.md — URL hash extension with lap + drag-and-drop FastF1 zip upload with progress + auto-simulate (INT-04, INT-05)
+- [ ] 06-06-PLAN.md — PhysicsPanel wheel zoom + drag pan + RESET + ProvenanceModal + Playwright E2E test completion (INT-06, PLAY-02, SC-4 carry-in)
 
 ### Phase 7: Deployment & Operations
 **Goal:** The application is live on its production URLs with persistent FastF1 + posterior storage, CORS locked down, a liveness probe passing, and the ten most recent race sessions pre-warmed so a first-time visitor's `/simulate` call lands on a cache hit.
@@ -181,8 +178,8 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
 | 2. Physics Model (Modules A–G) | 7/7 | Complete | 2026-04-23 |
 | 3. Bayesian Calibration Pipeline | 8/8 | Complete | 2026-04-23 |
 | 4. Simulation API & Uncertainty Quantification | 6/6 | Complete | 2026-04-24 |
-| 5. Dashboard Shell & Visualization | 0/9 | Planned | — |
-| 6. Playback, Interactions & Sharing | 0/? | Not started | — |
+| 5. Dashboard Shell & Visualization | 9/9 | Complete | 2026-04-24 |
+| 6. Playback, Interactions & Sharing | 0/6 | Not started | — |
 | 7. Deployment & Operations | 0/? | Not started | — |
 
 ---
