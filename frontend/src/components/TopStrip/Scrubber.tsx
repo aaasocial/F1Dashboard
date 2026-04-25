@@ -57,7 +57,7 @@ export function Scrubber({ maxLap }: ScrubberProps) {
   return (
     <div
       ref={ref}
-      onPointerDown={e => { setDragging(true); onPointer(e) }}
+      onPointerDown={e => { setDragging(true); onPointer(e); (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId) }}
       style={{ height: 24, position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
       data-testid="scrubber"
     >
