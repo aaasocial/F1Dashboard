@@ -26,25 +26,25 @@ export function mapApiResponseToSimulationResult(raw: SimulateApiResponse): Simu
     race: {
       id: (md as Record<string, unknown>)['race_id'] as string ?? '',
       name: (md as Record<string, unknown>)['race_name'] as string ?? '',
-      round: (md as Record<string, unknown>)['round'] as number ?? 0,
-      season: (md as Record<string, unknown>)['season'] as number ?? 0,
+      round: Number((md as Record<string, unknown>)['round'] ?? 0),
+      season: Number((md as Record<string, unknown>)['season'] ?? 0),
       circuit: (md as Record<string, unknown>)['circuit'] as string ?? '',
     },
     driver: {
       code: (md as Record<string, unknown>)['driver_code'] as string ?? '',
-      number: (md as Record<string, unknown>)['driver_number'] as number ?? 0,
+      number: Number((md as Record<string, unknown>)['driver_number'] ?? 0),
       name: (md as Record<string, unknown>)['driver_name'] as string ?? '',
       team: (md as Record<string, unknown>)['team'] as string ?? '',
       teamColor: (md as Record<string, unknown>)['team_color'] as string ?? '#999999',
     },
     stint: {
-      id: (md as Record<string, unknown>)['stint_index'] as number ?? 1,
+      id: Number((md as Record<string, unknown>)['stint_index'] ?? 1),
       compound: md.compound ?? 'UNKNOWN',
       compoundColor: (md as Record<string, unknown>)['compound_color'] as string ?? '#999999',
-      startLap: (md as Record<string, unknown>)['start_lap'] as number ?? 1,
-      endLap: (md as Record<string, unknown>)['end_lap'] as number ?? 1,
+      startLap: Number((md as Record<string, unknown>)['start_lap'] ?? 1),
+      endLap: Number((md as Record<string, unknown>)['end_lap'] ?? 1),
       lapCount: raw.lap_count ?? raw.per_lap.length,
-      startAge: (md as Record<string, unknown>)['start_age'] as number ?? 0,
+      startAge: Number((md as Record<string, unknown>)['start_age'] ?? 0),
     },
     calibration_id: md.calibration_id,
     model_schema_version: md.model_schema_version,
@@ -108,7 +108,7 @@ export async function runSimulationStream(
             setModuleProgress({
               module: payload['module'] as number,
               name: payload['name'] as string,
-              lap_count: payload['lap_count'] as number ?? 0,
+              lap_count: Number(payload['lap_count'] ?? 0),
             })
           } else if (eventType === 'simulation_complete') {
             // MSW mock sends frontend SimulationResult shape directly (bypasses mapper)
