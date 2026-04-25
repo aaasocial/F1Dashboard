@@ -9,6 +9,7 @@ import { Toast } from './components/shared/Toast'
 import { ShortcutsModal } from './components/shared/ShortcutsModal'
 import { MapFullscreenOverlay } from './components/shared/MapFullscreenOverlay'
 import { DropOverlay } from './components/shared/DropOverlay'
+import { ProvenanceModal } from './components/shared/ProvenanceModal'
 import { useDragUpload } from './hooks/useDragUpload'
 import { useUIStore } from './stores/useUIStore'
 import { useSimulationStore } from './stores/useSimulationStore'
@@ -128,6 +129,7 @@ export function App() {
       )}
       <ShortcutsModal />
       <MapFullscreenOverlay />
+      <ProvenanceModal />
       <DropOverlay active={dragActive} uploading={uploading} progress={progress} error={uploadError} />
     </>
   )
