@@ -72,7 +72,12 @@ export function TopStrip() {
   // SELECT handlers — cascade: race resets driver+stint, driver resets stint
   function onRaceChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const raceId = e.target.value || null
-    useSimulationStore.getState().setSelection(raceId ?? '', '', 0)
+    // Reset to null so hash sync guard fires correctly (selectedStintIndex != null guard in useHashSync)
+    useSimulationStore.setState({
+      selectedRaceId: raceId ?? null,
+      selectedDriverCode: null,
+      selectedStintIndex: null,
+    })
   }
   function onDriverChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const driverCode = e.target.value || null
