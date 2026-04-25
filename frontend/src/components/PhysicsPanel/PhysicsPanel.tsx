@@ -36,6 +36,8 @@ export function PhysicsPanel() {
   const data = useSimulationStore(s => s.data)
   const pos = useUIStore(s => s.pos)
   const showToast = useUIStore(s => s.showToast)
+  const xZoom = useUIStore(s => s.xZoom)
+  const setXZoom = useUIStore(s => s.setXZoom)
 
   if (!data) return <PanelSkeleton label="PHYSICS — SELECT STINT AND RUN MODEL" />
 
@@ -152,6 +154,28 @@ export function PhysicsPanel() {
             </button>
           )
         })}
+        {xZoom !== null && (
+          <button
+            onClick={() => setXZoom(null)}
+            aria-label="Reset zoom"
+            title="Reset zoom"
+            data-testid="reset-zoom"
+            style={{
+              padding: '7px 12px',
+              background: 'transparent',
+              border: 'none',
+              borderLeft: '1px solid var(--rule)',
+              color: 'var(--accent)',
+              fontFamily: 'var(--mono)',
+              fontSize: 9.5,
+              letterSpacing: 1.6,
+              fontWeight: 700,
+              cursor: 'pointer',
+              flexShrink: 0,
+              borderRadius: 0,
+            }}
+          >↺ RESET</button>
+        )}
       </div>
 
       {/* 4 stacked small-multiple charts — equal height, one per corner */}

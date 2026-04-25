@@ -33,7 +33,12 @@ export function PhysicsChart({ corner, metricKey, cfg, revealedLaps, isLast, max
   const { hoveredCorner, setHoveredCorner, setHoveredLap } = useUIStore(
     useShallow(s => ({ hoveredCorner: s.hoveredCorner, setHoveredCorner: s.setHoveredCorner, setHoveredLap: s.setHoveredLap }))
   )
+  const xZoom = useUIStore(s => s.xZoom)
   const hovered = hoveredCorner === corner
+
+  // Chart padding constants — defined here so they're available to effects and render
+  const PAD_L = 40, PAD_R = 12
+  const chartIw = Math.max(10, size.w - PAD_L - PAD_R)
 
   // ResizeObserver with rAF guard (Pitfall 3)
   useEffect(() => {
@@ -50,16 +55,93 @@ export function PhysicsChart({ corner, metricKey, cfg, revealedLaps, isLast, max
     return () => ro.disconnect()
   }, [])
 
+  // Wheel zoom + drag pan against shared xZoom (D-22)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    function clamp(d0: number, d1: number, lo: number, hi: number, minRange: number): [number, number] {
+      let a = Math.max(lo, d0)
+      let b = Math.min(hi, d1)
+      if (b - a < minRange) {
+        // Re-center
+        const c = (a + b) / 2
+        a = Math.max(lo, c - minRange / 2)
+        b = Math.min(hi, a + minRange)
+      }
+      return [a, b]
+    }
+
+    function onWheel(e: WheelEvent) {
+      e.preventDefault()
+      const cur = useUIStore.getState().xZoom ?? [1, maxLap]
+      const [d0, d1] = cur
+      const range = d1 - d0
+      const factor = e.deltaY > 0 ? 1.15 : 0.87
+      const newRange = Math.max(1, Math.min(maxLap - 1, range * factor))
+      // Center the new range on the cursor lap
+      const rect = el!.getBoundingClientRect()
+      const cursorPx = e.clientX - rect.left
+      const cursorFrac = (cursorPx - PAD_L) / chartIw
+      const cursorLap = d0 + cursorFrac * range
+      let nd0 = cursorLap - cursorFrac * newRange
+      let nd1 = nd0 + newRange
+      ;[nd0, nd1] = clamp(nd0, nd1, 1, maxLap, 1)
+      const isFullRange = nd0 <= 1 && nd1 >= maxLap
+      useUIStore.getState().setXZoom(isFullRange ? null : [nd0, nd1])
+    }
+
+    let dragStart: { x: number; domain: [number, number] } | null = null
+    function onPointerDown(e: PointerEvent) {
+      // Only main button; ignore right-click (handled by ChartContextMenu)
+      if (e.button !== 0) return
+      dragStart = {
+        x: e.clientX,
+        domain: useUIStore.getState().xZoom ?? [1, maxLap],
+      }
+      ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+    }
+    function onPointerMove(e: PointerEvent) {
+      if (!dragStart) return
+      const dx = e.clientX - dragStart.x
+      const [d0, d1] = dragStart.domain
+      const lapPerPx = (d1 - d0) / chartIw
+      const shift = -dx * lapPerPx
+      let nd0 = d0 + shift
+      let nd1 = nd0 + (d1 - d0)
+      if (nd0 < 1) { nd0 = 1; nd1 = nd0 + (d1 - d0) }
+      if (nd1 > maxLap) { nd1 = maxLap; nd0 = nd1 - (d1 - d0) }
+      const isFullRange = nd0 <= 1 && nd1 >= maxLap
+      useUIStore.getState().setXZoom(isFullRange ? null : [nd0, nd1])
+    }
+    function onPointerUp() { dragStart = null }
+
+    // Pitfall 7: wheel listener must be passive: false to allow preventDefault
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('pointerdown', onPointerDown)
+    el.addEventListener('pointermove', onPointerMove)
+    el.addEventListener('pointerup', onPointerUp)
+    el.addEventListener('pointercancel', onPointerUp)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('pointerdown', onPointerDown)
+      el.removeEventListener('pointermove', onPointerMove)
+      el.removeEventListener('pointerup', onPointerUp)
+      el.removeEventListener('pointercancel', onPointerUp)
+    }
+  }, [maxLap, chartIw])
+
   // Guard empty data (Pitfall 4)
   if (revealedLaps.length === 0) return null
 
   const { w, h } = size
-  const padL = 40, padR = 12, padT = 8, padB = isLast ? 18 : 6
-  const iw = Math.max(10, w - padL - padR)
+  const padL = PAD_L, padT = 8, padB = isLast ? 18 : 6
+  const iw = chartIw
   const ih = Math.max(10, h - padT - padB)
   const [yMin, yMax] = cfg.domain
 
-  const sx = scaleLinear().domain([1, maxLap]).range([padL, padL + iw])
+  const [domainStart, domainEnd] = xZoom ?? [1, maxLap]
+  const sx = scaleLinear().domain([domainStart, domainEnd]).range([padL, padL + iw])
   const sy = scaleLinear().domain([yMin, yMax]).range([padT + ih, padT])
 
   // Field key for this metric + corner combo
