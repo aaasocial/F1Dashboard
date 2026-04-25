@@ -14,16 +14,17 @@ async function selectFirstStintAndRun(page: import('@playwright/test').Page) {
 test.describe('keyboard shortcuts (INT-01)', () => {
   test('Space toggles play / pause', async ({ page }) => {
     await selectFirstStintAndRun(page)
-    // Initial state — playing (button shows PAUSE)
-    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
+    // Initial state — paused (playing: false default; button shows PLAY)
+    await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible()
     await page.keyboard.press('Space')
-    await expect(page.getByRole('button', { name: 'Play' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
     await page.keyboard.press('Space')
-    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible()
   })
 
   test('? opens shortcuts modal; Esc closes it', async ({ page }) => {
     await page.goto('/')
+    await page.locator('body').click()
     await page.keyboard.press('?')
     await expect(page.getByTestId('shortcuts-modal')).toBeVisible()
     await page.keyboard.press('Escape')
