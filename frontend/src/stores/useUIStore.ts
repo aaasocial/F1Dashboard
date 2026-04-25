@@ -42,7 +42,7 @@ export const useUIStore = create<UIState>(set => ({
   hoveredLap: null,
   hoveredCorner: null,
   mode: 'live',
-  playing: true,
+  playing: false,
   pos: 1.0,
   speed: 1,
   statusLogCollapsed: false,
