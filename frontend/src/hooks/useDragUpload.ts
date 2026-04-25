@@ -97,6 +97,15 @@ export function useDragUpload(): UseDragUploadResult {
   }, [])
 
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      ;(window as any).__testUploadFile = uploadFile
+    }
+    return () => {
+      if (import.meta.env.DEV) delete (window as any).__testUploadFile
+    }
+  }, [uploadFile])
+
+  useEffect(() => {
     function onDragEnter(e: DragEvent) {
       // Ignore non-file drags (e.g., text selection)
       if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return

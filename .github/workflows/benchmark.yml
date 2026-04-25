@@ -1,0 +1,47 @@
+name: benchmark
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Setup Python 3.12
+        run: uv python install 3.12
+
+      - name: Install project dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Cache FastF1 fixtures
+        uses: actions/cache@v4
+        with:
+          path: packages/core/tests/fixtures
+          key: f1-fixtures-${{ hashFiles('packages/core/tests/fixtures/**/*.pkl.gz') }}
+
+      - name: Run physics correctness tests
+        run: uv run pytest packages/core/tests/physics/ --benchmark-disable -x -q
+
+      - name: Run CI benchmark group (<600 ms threshold)
+        # Only the CI group runs in CI per Pitfall 7; dev-laptop group is local-only.
+        run: uv run pytest packages/core/tests/physics/test_benchmark.py --benchmark-only -m "benchmark" -k "ci" --benchmark-json=benchmark-ci.json
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-ci.json
+          if-no-files-found: warn

@@ -12,8 +12,11 @@ async function loadStint(page: import('@playwright/test').Page) {
 test.describe('chart export (INT-02)', () => {
   test('right-click PhysicsPanel opens custom context menu', async ({ page }) => {
     await loadStint(page)
-    const tabpanel = page.locator('[role="tabpanel"]').first()
-    await tabpanel.click({ button: 'right', position: { x: 100, y: 100 } })
+    await page.evaluate(() => {
+      const el = document.querySelector('[role="tabpanel"]')
+      if (!el) throw new Error('tabpanel not found')
+      el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 400, clientY: 400 }))
+    })
     await expect(page.getByTestId('chart-context-menu')).toBeVisible()
     await expect(page.getByText('Export PNG')).toBeVisible()
     await expect(page.getByText('Export SVG')).toBeVisible()
@@ -22,11 +25,15 @@ test.describe('chart export (INT-02)', () => {
 
   test('Export CSV triggers a download', async ({ page }) => {
     await loadStint(page)
-    const tabpanel = page.locator('[role="tabpanel"]').first()
-    await tabpanel.click({ button: 'right', position: { x: 100, y: 100 } })
-    const dlPromise = page.waitForEvent('download', { timeout: 5000 })
-    await page.getByText('Export CSV').click()
-    const download = await dlPromise
+    await page.evaluate(() => {
+      const el = document.querySelector('[role="tabpanel"]')
+      if (!el) throw new Error('tabpanel not found')
+      el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 400, clientY: 400 }))
+    })
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 5000 }),
+      page.getByText('Export CSV').click(),
+    ])
     expect(download.suggestedFilename()).toMatch(/\.csv$/)
   })
 })

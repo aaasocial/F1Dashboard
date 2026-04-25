@@ -28,10 +28,10 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-- **Phase:** 6 of 7 (playback-interactions-sharing)
+- **Phase:** 7 of 7 (deployment-operations)
 - **Plan:** Not started
 - **Status:** Ready to plan
-- **Progress:** [#####     ] 5 / 7 phases complete
+- **Progress:** [######    ] 6 / 7 phases complete
 
 ## Phase History
 
@@ -42,14 +42,14 @@ See: .planning/PROJECT.md
 | Phase 3: Bayesian Calibration Pipeline | Complete | 2026-04-23 |
 | Phase 4: Simulation API & Uncertainty Quantification | Complete | 2026-04-24 |
 | Phase 5: Dashboard Shell & Visualization | Complete | 2026-04-24 |
-| Phase 6: Playback, Interactions & Sharing | Pending | — |
+| Phase 6: Playback, Interactions & Sharing | Complete | 2026-04-25 |
 | Phase 7: Deployment & Operations | Pending | — |
 
 ## Performance Metrics
 
 - **Planned phases:** 7
-- **Completed phases:** 5
-- **Plans executed:** 35
+- **Completed phases:** 6
+- **Plans executed:** 41
 - **Requirements covered:** 49 / 49 (100 %)
 
 ## Accumulated Context
@@ -88,11 +88,24 @@ None.
 - 50 unit tests passing; TypeScript strict; build 306 KB
 - Two gaps carried to Phase 6: SC-3 (error/retry UI), SC-4 (chart zoom/pan)
 
+## Phase 6 Outcomes
+
+- Transport bar (⏮◄play►⏭) with 0.5×/1×/2×/4× speed, error banner + RETRY
+- 12-key keyboard shortcuts via `handleKey` (Space, arrows, Home/End, 1-4, T, E, S, ?, Esc)
+- ShortcutsModal, MapFullscreenOverlay, StatusLog collapse animation
+- Right-click chart context menu: Export PNG / SVG / CSV (file download)
+- Tire metrics clipboard copy (D-15 format string)
+- URL hash lap encoding: `#race=...&driver=...&stint=...&lap=N` — restores on reload
+- Drag-and-drop FastF1 cache zip upload with XHR progress bar and auto-simulation
+- PhysicsChart wheel zoom + drag pan with synchronized x-axis across all 4 corners; RESET button
+- ProvenanceModal with data lineage and disclaimer
+- 9/9 Playwright E2E tests passing; 5/5 human UAT items approved
+
 ## Session Continuity
 
-- **Last updated:** 2026-04-24
-- **Stopped at:** Phase 6 context gathered
-- **Next action:** Run `/gsd-plan-phase 6` to plan Phase 6 (Playback, Interactions & Sharing)
+- **Last updated:** 2026-04-25
+- **Stopped at:** Phase 6 complete — all UAT approved
+- **Next action:** Run `/gsd-plan-phase 7` to plan Phase 7 (Deployment & Operations)
 
 ---
-*State initialized: 2026-04-23 | Phase 4 completed: 2026-04-24*
+*State initialized: 2026-04-23 | Phase 4 completed: 2026-04-24 | Phase 6 completed: 2026-04-25*

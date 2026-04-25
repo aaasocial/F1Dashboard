@@ -32,7 +32,7 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
 - [x] **Phase 3: Bayesian Calibration Pipeline** — Five-stage offline CLI (aero → friction → thermal → degradation → validation), PyMC+NumPyro for Stage 4, ArviZ NetCDF + SQLite versioning, baseline linear model sanity check
 - [x] **Phase 4: Simulation API & Uncertainty Quantification** — POST /simulate wires physics + posteriors, K=100 vectorized CI draws, <2 s end-to-end, session upload endpoint, calibration summary endpoint
 - [x] **Phase 5: Dashboard Shell & Visualization** — React+TypeScript+visx shell, six-zone layout, cascade pickers, multi-chart panel with CI bands, tire array, track map, status log, linked hover
-- [ ] **Phase 6: Playback, Interactions & Sharing** — Transport bar + scrub, keyboard shortcuts, right-click export (PNG/SVG/CSV), clipboard copy, URL hash state, drag-and-drop session upload, provenance footer
+- [x] **Phase 6: Playback, Interactions & Sharing** — Transport bar + scrub, keyboard shortcuts, right-click export (PNG/SVG/CSV), clipboard copy, URL hash state, drag-and-drop session upload, provenance footer
 - [ ] **Phase 7: Deployment & Operations** — Fly.io backend with persistent volume, Vercel frontend, CORS hardening, healthz, cache pre-warm with 10 recent sessions
 
 ---
@@ -151,12 +151,12 @@ Seven phases deliver the v1 stint analyzer: a browser-based physics-informed tir
   6. Dragging a zip of a FastF1 cache directory onto the app fires `POST /sessions/upload`, and on success the app loads that session and runs `/simulate` against it without any further FastF1 fetch.
   7. The data provenance footer shows FastF1 library version, model schema version, calibration ID, calibration date, and the "Unofficial fan tool — not affiliated with F1, FIA, or Pirelli" disclaimer on every page.
 **Plans:** 6 plans
-- [ ] 06-01-PLAN.md — Wave 0 test infra: Playwright + E2E spec stubs + export.ts/useDragUpload scaffolds + Toast + MSW upload handler (PLAY-01, PLAY-02, INT-01..INT-06)
-- [ ] 06-02-PLAN.md — Store extensions + TopStrip step/jump/0.5× + ⓘ button + error/RETRY banner + Scrubber sector colors + pit markers (PLAY-01, PLAY-02, SC-3 carry-in)
-- [ ] 06-03-PLAN.md — Global keyboard shortcuts + ShortcutsModal + MapFullscreenOverlay + StatusLog Zustand collapse + Toast mount (INT-01)
-- [ ] 06-04-PLAN.md — Chart context menu (PNG/SVG/CSV export) + tire clipboard copy (INT-02, INT-03)
-- [ ] 06-05-PLAN.md — URL hash extension with lap + drag-and-drop FastF1 zip upload with progress + auto-simulate (INT-04, INT-05)
-- [ ] 06-06-PLAN.md — PhysicsPanel wheel zoom + drag pan + RESET + ProvenanceModal + Playwright E2E test completion (INT-06, PLAY-02, SC-4 carry-in)
+- [x] 06-01-PLAN.md — Wave 0 test infra: Playwright + E2E spec stubs + export.ts/useDragUpload scaffolds + Toast + MSW upload handler (PLAY-01, PLAY-02, INT-01..INT-06)
+- [x] 06-02-PLAN.md — Store extensions + TopStrip step/jump/0.5× + ⓘ button + error/RETRY banner + Scrubber sector colors + pit markers (PLAY-01, PLAY-02, SC-3 carry-in)
+- [x] 06-03-PLAN.md — Global keyboard shortcuts + ShortcutsModal + MapFullscreenOverlay + StatusLog Zustand collapse + Toast mount (INT-01)
+- [x] 06-04-PLAN.md — Chart context menu (PNG/SVG/CSV export) + tire clipboard copy (INT-02, INT-03)
+- [x] 06-05-PLAN.md — URL hash extension with lap + drag-and-drop FastF1 zip upload with progress + auto-simulate (INT-04, INT-05)
+- [x] 06-06-PLAN.md — PhysicsPanel wheel zoom + drag pan + RESET + ProvenanceModal + Playwright E2E test completion (INT-06, PLAY-02, SC-4 carry-in)
 
 ### Phase 7: Deployment & Operations
 **Goal:** The application is live on its production URLs with persistent FastF1 + posterior storage, CORS locked down, a liveness probe passing, and the ten most recent race sessions pre-warmed so a first-time visitor's `/simulate` call lands on a cache hit.

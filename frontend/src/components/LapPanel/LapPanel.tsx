@@ -16,6 +16,7 @@ export function LapPanel() {
   const lapIdx = Math.min(maxLap - 1, Math.max(0, Math.floor(pos - 1)))
   const lapFrac = Math.max(0, Math.min(0.9999, pos - Math.floor(pos)))
   const lap = data.laps[lapIdx]
+  if (!lap) return <PanelSkeleton label="LAP — AWAITING DATA" />
   const lapNumber = lapIdx + 1
   const revealedLaps = data.laps.slice(0, lapNumber)
 

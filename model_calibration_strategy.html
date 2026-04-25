@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Tire Model — Calibration Strategy</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf8; --fg: #1a1a1a; --fg2: #555; --fg3: #888;
+    --accent: #2a5a8a; --accent2: #8a3a2a; --new: #2a7a4a; --warn: #b85a1a;
+    --border: #e0ddd5; --hl: #f0efe8; --eq-bg: #f7f6f0;
+    --fixed: #4a6a8a; --learned: #8a4a4a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18; --fg: #e0ddd5; --fg2: #aaa; --fg3: #777;
+      --accent: #6aacee; --accent2: #ee8a6a; --new: #7acc9a; --warn: #eea868;
+      --border: #3a3a35; --hl: #2a2a25; --eq-bg: #28281f;
+      --fixed: #8aaade; --learned: #de8a8a;
+    }
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Georgia','Times New Roman',serif;
+    background:var(--bg); color:var(--fg);
+    line-height:1.8; padding:3rem 1.5rem;
+    max-width:900px; margin:0 auto; font-size:16px;
+  }
+  h1 { font-size:1.6rem; font-weight:600; margin-bottom:0.2rem; }
+  .sub { font-size:0.9rem; color:var(--fg3); margin-bottom:2rem; font-style:italic; }
+  h2 { font-size:1.25rem; font-weight:600; margin-top:2.8rem; margin-bottom:0.8rem; color:var(--accent); padding-bottom:0.4rem; border-bottom:1px solid var(--border); }
+  h3 { font-size:1.05rem; font-weight:600; margin-top:1.8rem; margin-bottom:0.5rem; }
+  h4 { font-size:0.95rem; font-weight:600; margin-top:1.2rem; margin-bottom:0.4rem; color:var(--fg2); }
+  p { margin-bottom:1rem; }
+  .eq {
+    background:var(--eq-bg); border-left:3px solid var(--accent);
+    padding:0.8rem 1rem; margin:0.8rem 0; overflow-x:auto; border-radius:0 4px 4px 0;
+    font-size:15px;
+  }
+  .note {
+    background:var(--hl); border-radius:4px;
+    padding:0.8rem 1rem; margin:1rem 0; font-size:0.92rem; color:var(--fg2);
+  }
+  .note strong { color:var(--fg); }
+  .warnbox {
+    background:rgba(184,90,26,0.08); border:1px solid var(--warn); border-radius:4px;
+    padding:0.8rem 1rem; margin:1rem 0; font-size:0.92rem; color:var(--fg2);
+  }
+  .warnbox strong { color:var(--warn); }
+  hr { border:none; border-top:1px solid var(--border); margin:2.5rem 0; }
+  table {
+    width:100%; border-collapse:collapse; margin:1.2rem 0;
+    font-size:0.85rem; color:var(--fg2);
+  }
+  table th, table td { padding:7px 10px; text-align:left; border-bottom:1px solid var(--border); vertical-align:top; }
+  table th { color:var(--fg); font-weight:600; background:var(--hl); }
+  .tag {
+    display:inline-block; font-family:sans-serif; font-size:0.68rem;
+    padding:1px 6px; border-radius:2px; margin-right:4px; font-weight:600; letter-spacing:0.02em;
+  }
+  .tag-fixed { background:var(--fixed); color:var(--bg); }
+  .tag-learned { background:var(--learned); color:var(--bg); }
+  .tag-semi { background:#888; color:var(--bg); }
+  code {
+    font-family:'Menlo','Consolas',monospace; font-size:0.87em;
+    background:var(--hl); padding:0.15em 0.4em; border-radius:3px;
+  }
+  .step-num {
+    display:inline-block; width:24px; height:24px; line-height:24px;
+    text-align:center; border-radius:50%; background:var(--accent); color:var(--bg);
+    font-family:sans-serif; font-size:0.75rem; font-weight:600; margin-right:8px;
+    vertical-align:middle;
+  }
+  ul.check, ol.check { margin:0.5rem 0 1rem 1.2rem; color:var(--fg2); font-size:0.93rem; }
+  ul.check li, ol.check li { margin-bottom:0.4rem; }
+  .datacard {
+    background:var(--eq-bg); border:1px solid var(--border); border-radius:6px;
+    padding:1rem 1.2rem; margin:0.8rem 0;
+  }
+  .datacard h4 { margin-top:0; color:var(--fg); }
+</style>
+</head>
+<body>
+
+<h1>Model Calibration Strategy: Hyperparameters and Required Datasets</h1>
+<p class="sub">Separating fixed physics from learnable parameters, identifying the data we need, and sequencing the ML calibration pipeline.</p>
+
+<div class="note">
+<strong>Color key:</strong> <span class="tag tag-fixed">FIXED</span> = known from physics, FIA regs, or published specs. <span class="tag tag-semi">SEMI</span> = estimable from data with moderate uncertainty. <span class="tag tag-learned">LEARNED</span> = must be fitted from observed degradation data via ML/optimization.
+</div>
+
+<hr>
+
+<h2>Part I — Full parameter taxonomy</h2>
+
+<h3>A. Vehicle geometry &amp; mass properties</h3>
+
+<table>
+<tr><th>Status</th><th>Symbol</th><th>Meaning</th><th>Value/source</th><th>Uncertainty</th></tr>
+<tr><td><span class="tag tag-fixed">FIXED</span></td><td>$M_{dry}$</td><td>Minimum car mass (incl. driver)</td><td>798 kg</td><td>FIA regs — exact</td></tr>
+<tr><td><span class="tag tag-semi">SEMI</span></td><td>$M_{fuel}(t)$</td><td>Fuel mass, decreases during race</td><td>~110 kg at start, ~1 kg/lap</td><td>Estimable from race length and consumption rate</td></tr>
+<tr><td><span class="tag tag-fixed">FIXED</span></td><td>$WB$</td><td>Wheelbase</td><td>3.6 m</td><td>Published specs</td></tr>
+<tr><td><span class="tag tag-fixed">FIXED</span></td><td>$T_f, T_r$</td><td>Track widths</td><td>1.60 m</td><td>FIA regs</td></tr>
+<tr><td><span class="tag tag-semi">SEMI</span></td><td>$WD$</td><td>Weight distribution (front fraction)</td><td>0.43–0.46</td><td>Team-dependent; assume 0.44</td></tr>
+<tr><td><span class="tag tag-semi">SEMI</span></td><td>$H_{CG}$</td><td>CG height</td><td>0.26–0.30 m</td><td>Small uncertainty; assume 0.28</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$K_{rf}/(K_{rf}+K_{rr})$</td><td>Roll stiffness split (front fraction)</td><td>0.55–0.65</td><td>Varies by setup and track</td></tr>
+</table>
+
+<h3>B. Tire geometry</h3>
+
+<table>
+<tr><th>Status</th><th>Symbol</th><th>Meaning</th><th>Value/source</th><th>Uncertainty</th></tr>
+<tr><td><span class="tag tag-fixed">FIXED</span></td><td>$R_0$</td><td>Unloaded tire radius</td><td>0.330 m (18" rim)</td><td>Pirelli spec</td></tr>
+<tr><td><span class="tag tag-fixed">FIXED</span></td><td>$b_{tread}$</td><td>Tread half-width</td><td>~0.15 m</td><td>From tire width (305 mm front, 405 mm rear)</td></tr>
+<tr><td><span class="tag tag-semi">SEMI</span></td><td>$K_{rad}$</td><td>Radial stiffness</td><td>~250 kN/m</td><td>Compound-dependent; literature estimate</td></tr>
+<tr><td><span class="tag tag-semi">SEMI</span></td><td>$d_0$</td><td>Initial tread thickness</td><td>~3–4 mm</td><td>Pirelli confidential but loosely known</td></tr>
+</table>
+
+<h3>C. Aerodynamics</h3>
+
+<table>
+<tr><th>Status</th><th>Symbol</th><th>Meaning</th><th>Value/source</th><th>Uncertainty</th></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$C_L A$</td><td>Downforce coefficient × area</td><td>5.0–6.0 m²</td><td>Team and track dependent; major calibration target</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$C_D A$</td><td>Drag coefficient × area</td><td>1.1–1.5 m²</td><td>Track dependent (high vs low downforce trim)</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$\xi$</td><td>Aero balance (front fraction)</td><td>0.42–0.48</td><td>Track and setup dependent</td></tr>
+<tr><td><span class="tag tag-fixed">FIXED</span></td><td>$\rho$</td><td>Air density</td><td>~1.20 kg/m³</td><td>From weather data (temp, pressure, humidity)</td></tr>
+</table>
+
+<div class="warnbox">
+<strong>Warning — aero is a major source of systematic error.</strong> At 300 km/h, downforce exceeds car weight. A 10% error in $C_L A$ translates to a ~5% error in friction coefficients due to load sensitivity. These parameters must be calibrated carefully against observed maximum lateral g at known corners.
+</div>
+
+<h3>D. Contact mechanics and friction</h3>
+
+<table>
+<tr><th>Status</th><th>Symbol</th><th>Meaning</th><th>Value/source</th><th>Uncertainty</th></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$\mu_0^{fresh}$</td><td>Reference friction coefficient (fresh tire)</td><td>1.7–2.0</td><td>Per compound; extractable from max lateral g</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$\bar{p}_0$</td><td>Reference contact pressure</td><td>400–600 kPa</td><td>Corresponding to $\mu_0^{fresh}$ at typical straight-line load</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$n$</td><td>Greenwood-Williamson exponent</td><td>0.75–0.85</td><td>Fitted from $\mu$ vs speed correlation</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$T_{opt}$</td><td>Optimal tread temperature</td><td>80–120 °C</td><td>Per compound; major calibration target</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$\sigma_T$</td><td>Temperature window width</td><td>15–30 °C</td><td>Per compound; softer = narrower</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$c_{py}$</td><td>Brush model tread stiffness</td><td>~10⁷ N/m² per unit length</td><td>Sets cornering stiffness via $C_\alpha = c_{py} a_{cp}^2$</td></tr>
+</table>
+
+<h3>E. Thermal model</h3>
+
+<table>
+<tr><th>Status</th><th>Symbol</th><th>Meaning</th><th>Value/source</th><th>Uncertainty</th></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$C_{tread}$</td><td>Tread thermal capacity</td><td>~3–8 kJ/K</td><td>From tread mass × specific heat</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$C_{carc}$</td><td>Carcass thermal capacity</td><td>~15–25 kJ/K</td><td>Larger mass</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$C_{gas}$</td><td>Gas thermal capacity</td><td>~0.5–1 kJ/K</td><td>Small; slow response</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$R_{tc}$</td><td>Tread-carcass thermal resistance</td><td>~0.01 K/W</td><td>Compound and tread thickness dependent</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$R_{cg}$</td><td>Carcass-gas thermal resistance</td><td>~0.1 K/W</td><td>Much larger (gas insulates)</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$h_0, h_1$</td><td>Convection coefficients (free + forced)</td><td>10 W/m²K, 8 W/m²K/(m/s)^0.5</td><td>From CFD studies or calibration</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$\alpha_p$</td><td>Heat partition coefficient</td><td>0.5–0.7</td><td>Rubber vs asphalt effusivity</td></tr>
+<tr><td><span class="tag tag-semi">SEMI</span></td><td>$\Delta T_{blanket}$</td><td>Tire blanket temperature above ambient</td><td>50–70 °C</td><td>FIA-regulated pre-heat</td></tr>
+</table>
+
+<h3>F. Degradation parameters</h3>
+
+<table>
+<tr><th>Status</th><th>Symbol</th><th>Meaning</th><th>Value/source</th><th>Uncertainty</th></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$\beta_{therm}$</td><td>Thermal aging rate</td><td>~10⁻⁵ s⁻¹</td><td>Per compound; from stint-end grip loss</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$T_{ref}$</td><td>Reference temp for aging</td><td>80 °C</td><td>Arbitrary reference; absorbed into $\beta$</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$T_{act}$</td><td>Aging activation temperature</td><td>20–30 °C</td><td>Doubling temperature interval</td></tr>
+<tr><td><span class="tag tag-learned">LEARNED</span></td><td>$k_{wear}$</td><td>Mechanical wear rate</td><td>~10⁻¹² m/J</td><td>Per compound</td></tr>
+</table>
+
+<h3>G. Other</h3>
+
+<table>
+<tr><th>Status</th><th>Symbol</th><th>Meaning</th><th>Value/source</th><th>Uncertainty</th></tr>
+<tr><td><span class="tag tag-fixed">FIXED</span></td><td>$C_{rr}$</td><td>Rolling resistance coefficient</td><td>0.012</td><td>Literature; small sensitivity</td></tr>
+<tr><td><span class="tag tag-semi">SEMI</span></td><td>$BB$</td><td>Brake bias (front fraction)</td><td>0.55–0.60</td><td>Team/track dependent</td></tr>
+<tr><td><span class="tag tag-semi">SEMI</span></td><td>$G_{final}$</td><td>Final drive ratio</td><td>~3.5</td><td>Team-dependent</td></tr>
+<tr><td><span class="tag tag-semi">SEMI</span></td><td>$G_{ratio}(1..8)$</td><td>Gear ratios</td><td>1.8 down to 0.8</td><td>Inferable from RPM vs speed at each gear</td></tr>
+</table>
+
+<hr>
+
+<h2>Part II — Count of learnable parameters</h2>
+
+<p>Total LEARNED parameters per compound: <strong>~18</strong></p>
+
+<ul class="check">
+<li>Aero: 3 ($C_L A$, $C_D A$, $\xi$) — but these are car/track dependent, not compound dependent</li>
+<li>Friction: 5 ($\mu_0^{fresh}$, $\bar{p}_0$, $n$, $T_{opt}$, $\sigma_T$) — per compound</li>
+<li>Brush model: 1 ($c_{py}$) — per compound</li>
+<li>Thermal: 8 ($C_{tread}, C_{carc}, C_{gas}, R_{tc}, R_{cg}, h_0, h_1, \alpha_p$) — compound-dependent, but many are shared</li>
+<li>Degradation: 3 ($\beta_{therm}, T_{act}, k_{wear}$) — per compound</li>
+<li>Setup: 1 ($K_{rf}/K_{rf}+K_{rr}$) — per team/track</li>
+</ul>
+
+<p>For 5 Pirelli compounds (C1–C5), this gives 5 × (5+1+3) + 5×8 + 3 aero + 1 setup = <strong>~95 parameters total</strong>. This is a lot, but many can be fixed from literature, many are shared across compounds, and the effective calibration dimension is much smaller.</p>
+
+<div class="note">
+<strong>Effective calibration dimension:</strong> The degradation-predicting parameters that matter most (and are least constrained by prior knowledge) are $\mu_0^{fresh}$, $n$, $T_{opt}$, $\sigma_T$, $\beta_{therm}$, and $C_{tread}/R_{tc}$ (which together set the thermal time constant). That's ~6 effective dimensions per compound. With 20+ races per season of training data, each providing ~50 degrading laps across 3–4 stints, calibration is well-posed.
+</div>
+
+<hr>
+
+<h2>Part III — Required datasets</h2>
+
+<div class="datacard">
+<h4>Dataset 1 — Per-race FastF1 telemetry</h4>
+<p><strong>Required:</strong> Every race from 2022 (start of ground-effect era) to present. For each race:</p>
+<ul class="check">
+<li>Per-driver car data: Speed, RPM, Gear, Throttle, Brake, DRS at ~4 Hz for every lap</li>
+<li>Per-driver position data: X, Y, Z coordinates at ~4 Hz</li>
+<li>Lap timing data: Lap times, sector times, compound, tire age, stint number, pit stops</li>
+<li>Weather: Air temperature, track temperature, rainfall, wind, humidity, pressure</li>
+</ul>
+<p><strong>Approximate volume:</strong> 22 races/year × 20 drivers × 60 laps × 400 data points/lap × 10 channels ≈ 100M data points per season. Manageable on a laptop.</p>
+</div>
+
+<div class="datacard">
+<h4>Dataset 2 — Track geometry reference</h4>
+<p>For each circuit, compute once:</p>
+<ul class="check">
+<li>Racing line curvature $\kappa(s)$ from aggregated fast laps</li>
+<li>Elevation profile $Z(s)$ and vertical curvature $\kappa_z(s)$</li>
+<li>Known corner radii, apex positions, sector boundaries</li>
+<li>Estimated banking angles (where significant — Zandvoort T3, Istanbul T8 historically)</li>
+</ul>
+</div>
+
+<div class="datacard">
+<h4>Dataset 3 — Pirelli compound specifications</h4>
+<p>Publicly available through Pirelli press releases and FIA technical documents:</p>
+<ul class="check">
+<li>Compound assignments per race (which of C1–C5 are the SOFT/MEDIUM/HARD at each GP)</li>
+<li>Recommended operating temperature windows (published loosely)</li>
+<li>Recommended starting pressures (when available)</li>
+</ul>
+</div>
+
+<div class="datacard">
+<h4>Dataset 4 — Gear ratio inference</h4>
+<p>Not directly published. Infer from data:</p>
+<ul class="check">
+<li>Filter telemetry to steady-speed portions of straights (throttle = 100%, gear constant)</li>
+<li>Compute ratio: gear-ratio × final-drive = $2\pi R_0 \cdot RPM / (60 \cdot V)$</li>
+<li>Fit 8 ratios + final drive per team across their fastest straights</li>
+</ul>
+</div>
+
+<div class="datacard">
+<h4>Dataset 5 — Validation (optional but valuable)</h4>
+<p>If you want to validate against "ground truth":</p>
+<ul class="check">
+<li>F1TV onboard videos showing gear/RPM/speed HUDs for cross-checking</li>
+<li>Publicly released tire graphics from F1 broadcasts (Pirelli's tire stress visualization on-screen)</li>
+<li>Post-race Pirelli analysis reports (qualitative, but useful sanity checks)</li>
+<li>Team strategy analyses (e.g., The Race, Motorsport.com pit stop analyses) as qualitative checks</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>Part IV — Sequential ML calibration pipeline</h2>
+
+<p>Don't try to fit everything at once. Calibrate in stages, using the fact that some parameters affect independent observables.</p>
+
+<h3><span class="step-num">1</span> Stage 1 — Aero calibration ($C_L A$, $C_D A$, $\xi$)</h3>
+
+<p><strong>Observables:</strong> Maximum lateral g-force in fast corners (aero-limited), maximum speed on long straights (drag-limited), car pitch/rake behavior (aero balance).</p>
+
+<p><strong>Method:</strong></p>
+<ul class="check">
+<li>For each known fast corner (e.g., Copse at Silverstone, T1 at Monza), observe the max lateral g</li>
+<li>Solve: $g_{lat,max} = \mu_{grip} \cdot (g + F_{aero}/M) / g$</li>
+<li>With $\mu_{grip} \approx 1.8$ as a prior, fit $C_L A$ across many corners and many tracks</li>
+<li>For $C_D A$: solve terminal speed on straights where $F_{drag} = F_{thrust}$</li>
+<li>For $\xi$: doesn't affect g-force directly; calibrate jointly with thermal model</li>
+</ul>
+
+<p><strong>Expected accuracy:</strong> ±10% on $C_L A$, ±15% on $C_D A$.</p>
+
+<h3><span class="step-num">2</span> Stage 2 — Friction baseline ($\mu_0^{fresh}$, $\bar{p}_0$, $n$)</h3>
+
+<p><strong>Observables:</strong> Peak lateral g as function of speed (tests load sensitivity), peak lateral g on fresh tires in early laps.</p>
+
+<p><strong>Method:</strong></p>
+<ul class="check">
+<li>Isolate laps 2–5 of each stint (tires warmed but not yet degraded) and identify the peak lateral g in each corner</li>
+<li>Compute the effective friction coefficient: $\mu_{eff}(V) = M a_{lat} / (Mg + F_{aero}(V))$</li>
+<li>Plot $\ln(\mu_{eff})$ vs $\ln(\bar{p})$ across speeds; slope gives $-(1-n)$</li>
+<li>Intercept and a chosen reference give $\mu_0^{fresh}$ and $\bar{p}_0$</li>
+</ul>
+
+<p><strong>Expected accuracy:</strong> ±5% on $\mu_0^{fresh}$, ±0.05 on $n$.</p>
+
+<h3><span class="step-num">3</span> Stage 3 — Temperature window ($T_{opt}$, $\sigma_T$) and thermal parameters</h3>
+
+<p><strong>Observables:</strong> Out-lap performance (cold tires), lap-time evolution in first 5 laps of stint (warm-up), variation in peak performance across track temperatures.</p>
+
+<p><strong>Method:</strong></p>
+<ul class="check">
+<li>For each stint, identify: lap 1 time (cold), best lap time in stint (optimal), and how rapidly lap time reaches optimum</li>
+<li>The rate of warm-up determines $C_{tread}$ (thermal mass)</li>
+<li>The temperature at which optimum occurs determines $T_{opt}$ relative to $T_{track}$</li>
+<li>The width of the optimum (how sensitive performance is to track temp variations across race days) determines $\sigma_T$</li>
+<li>Fit jointly via constrained optimization: the thermal ODE must reproduce the observed warm-up curves</li>
+</ul>
+
+<p><strong>Expected accuracy:</strong> ±10°C on $T_{opt}$, ±5°C on $\sigma_T$, ±30% on thermal capacities.</p>
+
+<h3><span class="step-num">4</span> Stage 4 — Degradation parameters ($\beta_{therm}, k_{wear}$)</h3>
+
+<p><strong>Observables:</strong> Lap-time degradation rate in middle and late stints.</p>
+
+<p><strong>Method:</strong></p>
+<ul class="check">
+<li>After Stages 1–3, the model predicts $T_{tread}(t)$ and $\mu(t)$ for each stint</li>
+<li>Without degradation, $\mu$ should be constant once warm — but observed lap times keep increasing</li>
+<li>The excess degradation is attributed to $\mu_0(t)$ decaying via thermal aging + wear</li>
+<li>Fit $\beta_{therm}$ and $k_{wear}$ by matching observed lap-time-vs-age curves across stints</li>
+<li>Use a Bayesian framework (MCMC or variational inference) to quantify uncertainty</li>
+</ul>
+
+<p><strong>Expected accuracy:</strong> ±30% on degradation rates (the least constrained parameters).</p>
+
+<h3><span class="step-num">5</span> Stage 5 — Cross-validation and refinement</h3>
+
+<ul class="check">
+<li>Hold out 20% of races as test set</li>
+<li>Predict degradation for held-out races; compare against observed</li>
+<li>Compute metrics: per-lap time prediction RMSE, stint-end grip prediction error, optimal pit window prediction accuracy</li>
+<li>Iterate: parameters that fail to generalize well may need to be made track-specific or compound-specific</li>
+</ul>
+
+<hr>
+
+<h2>Part V — Data preparation checklist</h2>
+
+<p>Before starting model construction, gather and preprocess:</p>
+
+<ol class="check">
+<li><strong>FastF1 installed and cached:</strong> Set up the FastF1 Python library with a local cache directory to avoid repeated downloads. Download all 2022–2025 race sessions.</li>
+<li><strong>Per-lap metadata clean:</strong> For each lap, verify the compound, tire age, fuel estimate, weather conditions, and whether it's an in-/out-lap (excluded from degradation analysis).</li>
+<li><strong>Outlier filtering:</strong> Remove laps affected by safety cars, virtual safety cars, yellow flags, laps behind traffic (pace affected by car ahead), and obvious lift-and-coast fuel-saving laps.</li>
+<li><strong>Track reference lines:</strong> For each circuit, compute the average racing line from the fastest 20% of laps (pole sitters' qualifying laps, typically). Use this to compute reference $\kappa(s)$ and $s(X, Y)$ mapping.</li>
+<li><strong>Weather normalization:</strong> Convert all weather data to consistent units. Interpolate between ~1-min samples to per-lap values.</li>
+<li><strong>Pirelli compound mapping:</strong> Build a table: (race, SOFT, MEDIUM, HARD) → (C5, C4, C3) or similar, since the actual compound letter changes each race.</li>
+<li><strong>Gear ratio extraction:</strong> For each team, fit the 8 gear ratios + final drive from steady-speed telemetry.</li>
+<li><strong>Baseline linear degradation model:</strong> As a sanity check and baseline for improvement, fit simple linear regressions of lap time vs tire age per stint per compound per race. Your physics model should do meaningfully better than this.</li>
+</ol>
+
+<hr>
+
+<h2>Part VI — Software stack</h2>
+
+<ul class="check">
+<li><strong>Data acquisition:</strong> <code>fastf1</code> (Python)</li>
+<li><strong>Numerical:</strong> <code>numpy</code>, <code>scipy</code> (for ODE integration), <code>scipy.optimize</code> (for parameter fitting)</li>
+<li><strong>Splines and smoothing:</strong> <code>scipy.interpolate</code> (for track curvature), <code>scipy.signal</code> (for Savitzky-Golay filters)</li>
+<li><strong>ML/Bayesian:</strong> <code>pymc</code> or <code>numpyro</code> (for MCMC), optionally <code>scikit-learn</code> (for baseline models)</li>
+<li><strong>Visualization:</strong> <code>matplotlib</code>, <code>plotly</code>, <code>folium</code> (for track maps)</li>
+<li><strong>Optimization framework:</strong> <code>optuna</code> or <code>skopt</code> (for Bayesian optimization of thermal parameters)</li>
+</ul>
+
+<hr>
+
+<h2>Part VII — Expected challenges and mitigations</h2>
+
+<div class="warnbox">
+<strong>Challenge 1: Overfitting to training races.</strong><br>
+With ~95 parameters and ~1000 stints of training data, there's plenty of room to overfit. Mitigate with: (a) strong physical priors on each parameter, (b) regularization penalizing deviation from physically reasonable values, (c) cross-validation with held-out races.
+</div>
+
+<div class="warnbox">
+<strong>Challenge 2: Parameter degeneracy.</strong><br>
+Some parameter combinations produce nearly identical predictions. For example, increasing $\mu_0$ and decreasing $T_{opt}$ might give the same lap-time prediction but different physical interpretations. Mitigate by using observables that constrain different parameters: peak g in slow corners constrains $\mu_0$, warm-up rate constrains $C_{tread}$.
+</div>
+
+<div class="warnbox">
+<strong>Challenge 3: Track-to-track generalization.</strong><br>
+The Mercedes paper found that specialist single-track models outperform generalist ones. You may need to allow track-specific offsets on some parameters (e.g., aero $C_L A$ varies with wing package used at each track). Consider a hierarchical model: shared "global" parameters + track-specific corrections.
+</div>
+
+<div class="warnbox">
+<strong>Challenge 4: Compound-to-compound generalization.</strong><br>
+Different compounds have different $T_{opt}$, $\sigma_T$, $\beta_{therm}$, etc. You can't assume one parameter set fits all compounds. But fitting each compound independently with limited data per compound is noisy. Mitigate with hierarchical priors that encode known relationships (e.g., softer compounds have lower $T_{opt}$ and higher $\beta_{therm}$).
+</div>
+
+<div class="warnbox">
+<strong>Challenge 5: Driver effects.</strong><br>
+Different drivers have different styles — some are harder on tires than others. This introduces ~20 additional degrees of freedom if you fit per-driver. Start by either averaging across drivers on the same team (shared setup) or fitting a single "driver aggressiveness" multiplier per driver.
+</div>
+
+<hr>
+
+<h2>Summary checklist before building</h2>
+
+<ol class="check">
+<li>☐ FastF1 installed, cache configured, 2022–2025 race data downloaded</li>
+<li>☐ Per-race metadata table built (compounds, stints, weather, etc.)</li>
+<li>☐ Outlier filter applied; clean lap dataset of ~50k usable laps</li>
+<li>☐ Track reference curvature maps computed for all circuits</li>
+<li>☐ Baseline linear degradation model fitted (benchmark to beat)</li>
+<li>☐ Aero parameters calibrated from Stage 1</li>
+<li>☐ Friction baseline fitted from Stage 2</li>
+<li>☐ Thermal parameters fitted from Stage 3</li>
+<li>☐ Degradation parameters fitted from Stage 4</li>
+<li>☐ Cross-validation on held-out races</li>
+<li>☐ Uncertainty quantification via MCMC or bootstrap</li>
+</ol>
+
+<script>
+  renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$', display: false}
+    ],
+    throwOnError: false
+  });
+</script>
+</body>
+</html>
